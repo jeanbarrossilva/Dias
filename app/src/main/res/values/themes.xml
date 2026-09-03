@@ -1,3 +1,9 @@
 <resources>
-  <style name="Theme.Dias" />
+  <style
+    name="Theme.Dias"
+    parent="Theme.MaterialComponents.NoActionBar">
+    <item name="android:colorBackground">@android:color/black</item>
+    <item name="android:textViewStyle">?textAppearanceBodyMedium</item>
+    <item name="textAppearanceBodyMediumEmphasized">@style/Theme.Dias.Text.Body.Medium.Emphasized</item>
+  </style>
 </resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style
+    name="Theme.Dias.Text.Body.Medium.Emphasized"
+    parent="TextAppearance.Material3.BodyMedium.Emphasized">
+    <item name="android:fontFamily">@font/space_grotesk</item>
+    <item name="android:textFontWeight">800</item>
+    <item name="android:textSize">18sp</item>
+  </style>
+</resources>

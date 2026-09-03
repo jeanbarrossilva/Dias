@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+  buildFeatures.viewBinding = true
   namespace = "com.jeanbarrossilva.dias"
 
   compileSdk {
@@ -26,12 +27,19 @@ android {
   }
 
   compileOptions {
-    val version = libs.versions
-                      .java
-                      .get()
-                      .replaceFirst('.', '_')
-                      .let { JavaVersion.valueOf("VERSION_$it") }
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    val version = libs
+      .versions
+      .java
+      .get()
+      .replaceFirst('.', '_')
+      .let { JavaVersion.valueOf("VERSION_$it") }
+    sourceCompatibility = version
+    targetCompatibility = version
   }
+}
+
+dependencies {
+  implementation(libs.android.activity)
+  implementation(libs.android.constraintLayout)
+  implementation(libs.android.material)
 }
