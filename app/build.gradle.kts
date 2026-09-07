@@ -5,6 +5,7 @@ plugins {
 android {
   buildFeatures.viewBinding = true
   namespace = "com.jeanbarrossilva.dias"
+  testOptions.unitTests.isIncludeAndroidResources = true
 
   compileSdk {
     version = release(36) {
@@ -42,4 +43,8 @@ dependencies {
   implementation(libs.android.activity)
   implementation(libs.android.constraintLayout)
   implementation(libs.android.material)
+  testImplementation(libs.android.test)
+  testImplementation(libs.assertJ)
+  testImplementation(libs.jUnit4)
+  testImplementation(libs.robolectric)
 }

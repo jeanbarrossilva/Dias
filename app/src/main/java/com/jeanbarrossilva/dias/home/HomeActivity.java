@@ -8,7 +8,7 @@ import androidx.annotation.Nullable;
 
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
 
-import java.util.List;
+import java.util.Set;
 
 public class HomeActivity extends Activity {
   @Nullable
@@ -29,9 +29,6 @@ public class HomeActivity extends Activity {
   }
 
   private void showPinnedHandles(@NonNull final HomeActivityBinding binding) {
-    final List<Handle> handles = Handle.queryAll(this).toList();
-    final PinnedHandlesAdapter adapter =
-      new PinnedHandlesAdapter(this, handles);
-    binding.pinnedAppsView.setAdapter(adapter);
+    binding.pinnedAppsView.togglePins(Set.of(0, 1));
   }
 }
