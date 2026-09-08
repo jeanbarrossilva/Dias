@@ -116,7 +116,7 @@ public final class Handle implements Comparable<Handle> {
   public void pin(final int index) throws IndexOutOfBoundsException {
     if (index < 0)
       throw new IndexOutOfBoundsException(
-        "handle cannot be pinned at a negative index"
+        "handle cannot be pinned at a negative index (%d)".formatted(index)
       );
     pinIndex = index;
   }
