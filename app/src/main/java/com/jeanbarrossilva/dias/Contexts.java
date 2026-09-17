@@ -2,6 +2,7 @@ package com.jeanbarrossilva.dias;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 
 import androidx.annotation.NonNull;
@@ -32,10 +33,14 @@ public final class Contexts {
     Stream<Handle> result = null;
     try {
       result = packageManager
-        .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        .queryIntentActivities(intent, PackageManager.MATCH_ALL)
         .stream()
         .filter(Objects::nonNull)
         .map(resolveInfo -> {
+          final ActivityInfo activityInfo = resolveInfo.activityInfo;
+          final String packageName = activityInfo.packageName;
+          if (packageName != null && packageName.equals(self.getPackageName()))
+            return null;
           try {
             return HandleParser.parse(self, resolveInfo.activityInfo);
           } catch (final HandleParser.ParsingException exception) {

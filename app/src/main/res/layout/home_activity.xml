@@ -4,12 +4,11 @@
   xmlns:app="http://schemas.android.com/apk/res-auto"
   android:layout_height="match_parent"
   android:layout_width="match_parent">
-  <com.jeanbarrossilva.dias.home.PinnedHandlesView
+  <com.jeanbarrossilva.dias.home.HandlesView
     android:divider="@drawable/home_pinned_apps_divider"
     android:id="@+id/pinnedAppsView"
     android:layout_height="wrap_content"
     android:layout_width="match_parent"
-    android:listSelector="@android:color/transparent"
     android:paddingHorizontal="24dp"
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintTop_toTopOf="parent" />

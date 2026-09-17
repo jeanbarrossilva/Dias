@@ -18,7 +18,7 @@ public class HomeActivity extends Activity {
   public void onCreate(@Nullable final Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     binding = HomeActivityBinding.inflate(getLayoutInflater());
-    showPinnedHandles(binding);
+    showHandles(binding);
     setContentView(binding.getRoot());
   }
 
@@ -28,7 +28,7 @@ public class HomeActivity extends Activity {
     binding = null;
   }
 
-  private void showPinnedHandles(@NonNull final HomeActivityBinding binding) {
+  private void showHandles(@NonNull final HomeActivityBinding binding) {
     binding.pinnedAppsView.togglePins(Set.of(0, 1));
   }
 }

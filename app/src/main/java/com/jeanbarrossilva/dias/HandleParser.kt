@@ -1,5 +1,6 @@
 package com.jeanbarrossilva.dias
 
+import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
@@ -9,15 +10,16 @@ import kotlin.reflect.KProperty1
 object HandleParser {
   sealed class ParsingException: IllegalArgumentException {
     class UnparsableActivityInfo(
-      val properties: List<KProperty1<ActivityInfo, Any>>
+      name: String?,
+      val missing: List<KProperty1<ActivityInfo, Any>>
     ): ParsingException(
-      "Not enough information about the activity. The following are required " +
-        "for parsing one into a handler, but were missing:\n" +
-        properties.joinToString(
-          prefix = "  • ${ActivityInfo::class.simpleName}.",
-          separator = "\n",
-          transform = KProperty1<ActivityInfo, Any>::name
-        )
+      "Not enough information about the activity" +
+        (name?.let { " $it" } ?: "") +
+        ". The following are required for parsing one into a handler, but " +
+        "were missing:\n" +
+        missing.joinToString(separator = "\n") {
+          "  • ${ActivityInfo::class.simpleName}.${it.name}"
+        }
     )
 
     class NonexistentActivity
@@ -69,7 +71,7 @@ object HandleParser {
         throw ParsingException.NonexistentPackage(exception)
       }
     val label = activityInfo.loadLabel(targetPackageManager)
-    return Handle(id, label /* , activityClass */)
+    return Handle(id, label, Activity::class.java)
   }
 
   @Throws(ParsingException.UnparsableActivityInfo::class)
@@ -90,6 +92,6 @@ object HandleParser {
     if (packageName == null)
       fields.add(ActivityInfo::packageName)
     if (fields.isNotEmpty())
-      throw ParsingException.UnparsableActivityInfo(fields)
+      throw ParsingException.UnparsableActivityInfo(name, fields)
   }
 }

@@ -1,5 +1,6 @@
 package com.jeanbarrossilva.dias;
 
+import android.app.Activity;
 import android.content.Context;
 
 import androidx.annotation.NonNull;
@@ -39,16 +40,17 @@ public final class Handle implements Comparable<Handle> {
   public static final int UNPINNED = -1;
 
   private int pinIndex;
+  @Nullable private final Class<? extends Activity> activityClass;
 
   Handle(
     final int id,
-    @NonNull final CharSequence label
- // @NonNull final Class<? extends Activity> activityClass
+    @NonNull final CharSequence label,
+    @NonNull final Class<? extends Activity> activityClass
   ) {
     this.id = id;
     this.label = label;
     this.pinIndex = UNPINNED;
- // this.activityClass = activityClass;
+    this.activityClass = activityClass;
   }
 
   @Override
@@ -59,8 +61,10 @@ public final class Handle implements Comparable<Handle> {
       return false;
     return id == handleObj.id
       && label.equals(handleObj.label)
-      && pinIndex == handleObj.pinIndex;
-   // && activityClass.equals(handleObj.activityClass);
+      && pinIndex == handleObj.pinIndex
+      && ((activityClass == null && handleObj.activityClass == null)
+        || activityClass != null
+        && activityClass.equals(handleObj.activityClass));
   }
 
   @Override
@@ -71,8 +75,13 @@ public final class Handle implements Comparable<Handle> {
   @NonNull
   @Override
   public String toString() {
-    return "Handle(id=%d, label=%s, isPinned=%b)"
-      .formatted(id, label, pinIndex /* , activityClass */);
+    return (isPinned() ? "⚑" : "⚐")
+      + " "
+      + (label.isEmpty() ? "<unnamed>" : label)
+      + " "
+      + "["
+      + id
+      + ']';
   }
 
   @Override
@@ -85,7 +94,8 @@ public final class Handle implements Comparable<Handle> {
    * handles on the home screen.
    * <p>
    * The index is either positive, denoting that this handle is, in fact,
-   * pinned; or negative, in which case {@link #isPinned()} is {@code false}.
+   * pinned; or {@link #UNPINNED}, in which case {@link #isPinned()} is
+   * {@code false}.
    */
   public int getPinIndex() {
     return pinIndex;
@@ -101,7 +111,7 @@ public final class Handle implements Comparable<Handle> {
    * @see #unpin()
    */
   public boolean isPinned() {
-    return pinIndex > UNPINNED;
+    return pinIndex != UNPINNED;
   }
 
   /**
@@ -129,5 +139,15 @@ public final class Handle implements Comparable<Handle> {
    */
   public void unpin() {
     pinIndex = UNPINNED;
+  }
+
+  /**
+   * Starts the activity associated to this handle.
+   *
+   * @param context Context from which the activity will be started.
+   */
+  public void launch(@NonNull final Context context) {
+    if (activityClass == null)
+      return;
   }
 }

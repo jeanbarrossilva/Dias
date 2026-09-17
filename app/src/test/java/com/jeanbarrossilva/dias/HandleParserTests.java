@@ -74,8 +74,8 @@ public final class HandleParserTests {
       .isEqualTo(
         new Handle(
           packageManager.getPackageUid(packageName, 0),
-          ActivityInfoBuilder.defaultLabel
-       // ActivityInfoBuilder.DefaultActivity.class
+          ActivityInfoBuilder.defaultLabel,
+          ActivityInfoBuilder.DefaultActivity.class
         )
       );
   }

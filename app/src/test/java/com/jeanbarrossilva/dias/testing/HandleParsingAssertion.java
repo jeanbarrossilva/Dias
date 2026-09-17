@@ -47,7 +47,7 @@ public final class HandleParsingAssertion
     @SuppressWarnings("rawtypes")
     public ListAssert<KProperty1> properties() {
       return extracting(
-        HandleParser.ParsingException.UnparsableActivityInfo::getProperties,
+        HandleParser.ParsingException.UnparsableActivityInfo::getMissing,
         Assertions.as(list(KProperty1.class))
       );
     }

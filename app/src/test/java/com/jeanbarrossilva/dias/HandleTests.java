@@ -1,5 +1,7 @@
 package com.jeanbarrossilva.dias;
 
+import android.app.Activity;
+
 import androidx.annotation.NonNull;
 
 import org.junit.Test;
@@ -45,6 +47,6 @@ public class HandleTests {
 
   @NonNull
   private static Handle sampleHandle() {
-    return new Handle(/* id = */ 0, /* label = */ "Dias");
+    return new Handle(/* id = */ 0,/* label = */ "Dias", Activity.class);
   }
 }
