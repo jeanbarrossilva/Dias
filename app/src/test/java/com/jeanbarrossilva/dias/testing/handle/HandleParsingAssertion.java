@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.testing;
+package com.jeanbarrossilva.dias.testing.handle;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -7,7 +7,7 @@ import android.content.pm.ActivityInfo;
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 
-import com.jeanbarrossilva.dias.Handle;
+import com.jeanbarrossilva.dias.Launcher;
 import com.jeanbarrossilva.dias.HandleParser;
 
 import org.assertj.core.api.AbstractAssert;
@@ -63,7 +63,7 @@ public final class HandleParsingAssertion
   }
 
   @NonNull
-  public AbstractComparableAssert<?, Handle> succeeds() {
+  public AbstractComparableAssert<?, Launcher.Handle> succeeds() {
     try {
       return assertThat(parse());
     } catch (final HandleParser.ParsingException exception) {
@@ -104,7 +104,7 @@ public final class HandleParsingAssertion
   }
 
   @NonNull
-  private Handle parse() throws HandleParser.ParsingException {
+  private Launcher.Handle parse() throws HandleParser.ParsingException {
     return HandleParser.parse(context, activityInfo);
   }
 }

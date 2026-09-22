@@ -2,6 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <application>
     <activity
-      android:name="com.jeanbarrossilva.dias.testing.ActivityInfoBuilder$DefaultActivity" />
+      android:name="com.jeanbarrossilva.dias.testing.handle.ActivityInfoBuilder$DefaultActivity" />
   </application>
 </manifest>

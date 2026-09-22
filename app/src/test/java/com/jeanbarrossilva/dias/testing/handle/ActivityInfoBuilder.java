@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.testing;
+package com.jeanbarrossilva.dias.testing.handle;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
@@ -12,6 +12,8 @@ import com.jeanbarrossilva.dias.R;
 
 public final class ActivityInfoBuilder {
   @NonNull public static final String defaultLabel = "Dias";
+  @NonNull public static final String defaultPackageName =
+    "com.jeanbarrossilva.dias";
 
   @StringRes private int labelRes;
   @Nullable private String name;
@@ -24,7 +26,7 @@ public final class ActivityInfoBuilder {
     labelRes = R.string.app_name;
     name = DefaultActivity.class.getName();
     nonLocalizedLabel = defaultLabel;
-    packageName = "com.jeanbarrossilva.dias";
+    packageName = defaultPackageName;
   }
 
   @NonNull

@@ -4,9 +4,9 @@
   xmlns:app="http://schemas.android.com/apk/res-auto"
   android:layout_height="match_parent"
   android:layout_width="match_parent">
-  <com.jeanbarrossilva.dias.home.HandlesView
+  <com.jeanbarrossilva.dias.app.home.PinnedHandlesView
     android:divider="@drawable/home_pinned_apps_divider"
-    android:id="@+id/pinnedAppsView"
+    android:id="@+id/pinnedHandlesView"
     android:layout_height="wrap_content"
     android:layout_width="match_parent"
     android:paddingHorizontal="24dp"

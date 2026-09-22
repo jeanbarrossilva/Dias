@@ -1,9 +1,10 @@
-package com.jeanbarrossilva.dias;
+package com.jeanbarrossilva.dias.app;
 
+import android.content.ComponentName;
 import android.content.Context;
-import android.content.pm.PackageManager;
 
-import com.jeanbarrossilva.dias.testing.ActivityInfoBuilder;
+import com.jeanbarrossilva.dias.Launcher;
+import com.jeanbarrossilva.dias.testing.handle.ActivityInfoBuilder;
 
 import org.junit.Ignore;
 import org.junit.Test;
@@ -13,7 +14,7 @@ import org.robolectric.RobolectricTestRunner;
 import kotlin.reflect.KProperty1;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-import static com.jeanbarrossilva.dias.testing.HandleParsingAssertion.assertThatHandleParsing;
+import static com.jeanbarrossilva.dias.testing.handle.HandleParsingAssertion.assertThatHandleParsing;
 
 @RunWith(RobolectricTestRunner.class)
 public final class HandleParserTests {
@@ -65,17 +66,17 @@ public final class HandleParserTests {
   }
 
   @Test
-  public void parses() throws PackageManager.NameNotFoundException {
+  public void parses() {
     final Context context = getApplicationContext();
-    final PackageManager packageManager = context.getPackageManager();
-    final String packageName = context.getPackageName();
     assertThatHandleParsing(context, activityInfoBuilder -> {})
       .succeeds()
       .isEqualTo(
-        new Handle(
-          packageManager.getPackageUid(packageName, 0),
-          ActivityInfoBuilder.defaultLabel,
-          ActivityInfoBuilder.DefaultActivity.class
+        new Launcher.Handle(
+          new ComponentName(
+            ActivityInfoBuilder.defaultPackageName,
+            ActivityInfoBuilder.DefaultActivity.class.getName()
+          ),
+          ActivityInfoBuilder.defaultLabel
         )
       );
   }

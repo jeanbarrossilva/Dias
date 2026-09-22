@@ -8,7 +8,7 @@
     android:theme="@style/Theme.Dias">
     <activity
       android:exported="true"
-      android:name=".home.HomeActivity">
+      android:name=".app.home.HomeActivity">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />

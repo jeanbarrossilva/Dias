@@ -1,6 +1,6 @@
 package com.jeanbarrossilva.dias
 
-import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
@@ -36,13 +36,10 @@ object HandleParser {
 
   @JvmStatic
   @Throws(ParsingException::class)
-  fun parse(context: Context, activityInfo: ActivityInfo): Handle {
+  fun parse(context: Context, activityInfo: ActivityInfo): Launcher.Handle {
     activityInfo.checkParsability()
     val packageName = activityInfo.packageName
     val targetContext =
-      if (packageName == context.packageName)
-        context
-      else
         try {
           context.createPackageContext(
             packageName,
@@ -51,27 +48,9 @@ object HandleParser {
         } catch (exception: PackageManager.NameNotFoundException) {
           throw ParsingException.NonexistentPackage(exception)
         }
-//  val targetActivityClass =
-//    try {
-//      Class
-//        .forName(
-//          activityInfo.name,
-//          /* initialize = */ true,
-//          targetContext.classLoader
-//        )
-//        .asSubclass(Activity::class.java)
-//    } catch (exception: ClassNotFoundException) {
-//      throw ParsingException.NonexistentActivity(exception)
-//  }
     val targetPackageManager = targetContext.packageManager
-    val id =
-      try {
-        targetPackageManager.getPackageUid(packageName, 0)
-      } catch (exception: PackageManager.NameNotFoundException) {
-        throw ParsingException.NonexistentPackage(exception)
-      }
-    val label = activityInfo.loadLabel(targetPackageManager)
-    return Handle(id, label, Activity::class.java)
+    val label = activityInfo.loadLabel(targetPackageManager).toString()
+    return Launcher.Handle(ComponentName(packageName, activityInfo.name), label)
   }
 
   @Throws(ParsingException.UnparsableActivityInfo::class)

@@ -40,9 +40,11 @@ android {
 }
 
 dependencies {
+  implementation(libs.agrona)
   implementation(libs.android.activity)
   implementation(libs.android.constraintLayout)
   implementation(libs.android.material)
+  testImplementation(libs.android.espresso.intents)
   testImplementation(libs.android.test)
   testImplementation(libs.assertJ)
   testImplementation(libs.jUnit4)

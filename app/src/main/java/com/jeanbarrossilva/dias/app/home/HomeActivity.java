@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.home;
+package com.jeanbarrossilva.dias.app.home;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -6,6 +6,8 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.jeanbarrossilva.dias.IntHashSets;
+import com.jeanbarrossilva.dias.Launcher;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
 
 import java.util.Set;
@@ -29,6 +31,8 @@ public class HomeActivity extends Activity {
   }
 
   private void showHandles(@NonNull final HomeActivityBinding binding) {
-    binding.pinnedAppsView.togglePins(Set.of(0, 1));
+    final Launcher launcher = new Launcher(this);
+    launcher.pin(IntHashSets.of(0, 1));
+    binding.pinnedHandlesView.setLauncher(launcher);
   }
 }

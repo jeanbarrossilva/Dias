@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.home;
+package com.jeanbarrossilva.dias.app.home;
 
 import android.content.Context;
 import android.content.res.Resources;
