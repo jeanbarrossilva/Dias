@@ -1,6 +1,4 @@
-package com.jeanbarrossilva.dias.testing.launcher;
-
-import com.jeanbarrossilva.dias.Launcher;
+package com.jeanbarrossilva.dias;
 
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
@@ -17,10 +15,10 @@ import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 import static org.assertj.core.api.InstanceOfAssertFactories.list;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
-public final class LauncherAssertion
-  extends AbstractAssert<LauncherAssertion, Launcher> {
-  private LauncherAssertion(@NotNull final Launcher launcher) {
-    super(launcher, LauncherAssertion.class);
+public final class LauncherAssert
+  extends AbstractAssert<LauncherAssert, Launcher> {
+  private LauncherAssert(@NotNull final Launcher launcher) {
+    super(launcher, LauncherAssert.class);
   }
 
   @NotNull
@@ -32,8 +30,8 @@ public final class LauncherAssertion
   }
 
   @NotNull
-  @SuppressWarnings({"resource", "UnusedReturnValue"})
-  public LauncherAssertion hasPinned(final int index) {
+  @SuppressWarnings("resource")
+  public LauncherAssert hasPinned(final int index) {
     describedAs("is " + actual().handles[index] + " pinned")
       .extracting(launcher -> launcher.isPinned(index), Assertions.as(BOOLEAN))
       .isEqualTo(true);
@@ -42,7 +40,7 @@ public final class LauncherAssertion
 
   @NotNull
   @SuppressWarnings("resource")
-  public LauncherAssertion hasUnpinned(final int index) {
+  public LauncherAssert hasUnpinned(final int index) {
     describedAs("is " + actual().handles[index] + " unpinned")
       .extracting(launcher -> launcher.isPinned(index), Assertions.as(BOOLEAN))
       .isEqualTo(false);
@@ -51,7 +49,7 @@ public final class LauncherAssertion
 
   @NotNull
   @SuppressWarnings({"resource", "UnusedReturnValue"})
-  public LauncherAssertion hasLaunched(final int index)
+  public LauncherAssert hasLaunched(final int index)
     throws AssertionError {
     final Launcher.Handle handle = actual().handles[index];
     intended(hasComponent(handle.name));
@@ -73,7 +71,7 @@ public final class LauncherAssertion
   }
 
   @NotNull
-  public static LauncherAssertion assertThat(@NotNull final Launcher launcher) {
-    return new LauncherAssertion(launcher);
+  public static LauncherAssert assertThat(@NotNull final Launcher launcher) {
+    return new LauncherAssert(launcher);
   }
 }

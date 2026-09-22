@@ -1,7 +1,5 @@
 package com.jeanbarrossilva.dias;
 
-import android.content.ComponentName;
-
 import androidx.annotation.NonNull;
 import androidx.test.espresso.intent.Intents;
 
@@ -19,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.jeanbarrossilva.dias.Arrays.getIndices;
-import static com.jeanbarrossilva.dias.testing.launcher.LauncherAssertion.assertThat;
+import static com.jeanbarrossilva.dias.LauncherAssert.assertThat;
 import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -244,12 +242,11 @@ public class LauncherTests {
         .closedOpen(0, 13)
         .stream()
         .map(
-          n -> new Launcher.Handle(
-            new ComponentName(
-              "com.jeanbarrossilva.dias",
-              "com.jeanbarrossilva.dias.Activity" + (n + 1)
-            ),
-            /* label = */ "App " + (n + 1)
+          index -> new Launcher.Handle(
+            /* packageName = */  "com.jeanbarrossilva.dias",
+            /* activityName = */ "com.jeanbarrossilva.dias.Activity"
+                                 + (index + 1),
+            /* label = */        "App " + (index + 1)
           )
         )
         .toArray(Launcher.Handle[]::new)

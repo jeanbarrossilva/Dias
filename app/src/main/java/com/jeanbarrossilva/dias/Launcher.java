@@ -39,8 +39,10 @@ public final class Launcher implements Closeable {
   @NonNull private final IntHashSet pinIndices;
   @Nullable private Consumer<@NotNull Pinning> onPinningListener;
 
+  private static final Intent queryIntent =
+    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+
   /** Holds information about a user-visible, installed application. */
-  @SuppressWarnings("ClassCanBeRecord")
   public static final class Handle implements Comparable<Handle> {
     /** ID of the activity associated to this handle. */
     @NonNull public final ComponentName name;
@@ -50,10 +52,11 @@ public final class Launcher implements Closeable {
 
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public Handle(
-      @NonNull final ComponentName name,
+      @NonNull final String packageName,
+      @NonNull final String activityName,
       @NonNull final String label
     ) {
-      this.name = name;
+      this.name = new ComponentName(packageName, activityName);
       this.label = label;
     }
 
@@ -72,6 +75,21 @@ public final class Launcher implements Closeable {
     @Override
     public int compareTo(Handle o) {
       return label.compareTo(o.label);
+    }
+
+    @Nullable
+    static Handle parse(
+      @NonNull final PackageManager packageManager,
+      @NonNull final ActivityInfo activityInfo
+    ) {
+      final String packageName = activityInfo.packageName;
+      if (packageName == null)
+        return null;
+      final String activityName = activityInfo.name;
+      if (activityName == null)
+        return null;
+      final String label = activityInfo.loadLabel(packageManager).toString();
+      return new Handle(packageName, activityName, label);
     }
   }
 
@@ -116,7 +134,12 @@ public final class Launcher implements Closeable {
    *   installed and parse information on them to handles.
    */
   public Launcher(@NonNull final Context context) {
-    this(context, querySortedHandles(context));
+    this(
+      context,
+      context.getPackageManager() instanceof PackageManager packageManager
+        ? queryHandles(packageManager)
+        : new Handle[0]
+    );
   }
 
   /**
@@ -213,9 +236,9 @@ public final class Launcher implements Closeable {
       final boolean didPin = pinIndices.addAll(boundedIndices);
       if (!didPin || onPinningListener == null)
         return;
-      final IntHashSet diff = pinIndices.equals(boundedIndices)
-        ? boundedIndices
-        : boundedIndices.difference(pinIndices);
+      IntHashSet diff = boundedIndices.difference(pinIndices);
+      if (diff == null)
+        diff = boundedIndices;
       final var pinning = new Pinning(diff, true);
       onPinningListener.accept(pinning);
     });
@@ -352,29 +375,16 @@ public final class Launcher implements Closeable {
   }
 
   @NonNull
-  private static Handle[] querySortedHandles(@NonNull final Context context)
-    throws HandleParser.ParsingException {
-    final PackageManager packageManager = context.getPackageManager();
-    if (packageManager == null)
-      return new Handle[0];
-    final Intent intent =
-      new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+  private static Handle[] queryHandles(
+    @NonNull final PackageManager packageManager
+  ) {
     return packageManager
-      .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+      .queryIntentActivities(queryIntent, PackageManager.MATCH_DEFAULT_ONLY)
       .stream()
       .filter(Objects::nonNull)
-      .map(resolveInfo -> {
-        final ActivityInfo activityInfo = resolveInfo.activityInfo;
-        final String packageName = activityInfo.packageName;
-        if (packageName != null
-          && packageName.equals(context.getPackageName()))
-          return null;
-        try {
-          return HandleParser.parse(context, resolveInfo.activityInfo);
-        } catch (final HandleParser.ParsingException exception) {
-          return null;
-        }
-      })
+      .map(
+        resolveInfo -> Handle.parse(packageManager, resolveInfo.activityInfo)
+      )
       .filter(Objects::nonNull)
       .sorted()
       .toArray(Handle[]::new);
