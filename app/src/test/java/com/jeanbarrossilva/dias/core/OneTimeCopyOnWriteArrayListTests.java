@@ -10,7 +10,7 @@ public class OneTimeCopyOnWriteArrayListTests {
   public void throwsWhenInitialCapacityIsNegative() {
     assertThatThrownBy(() -> new OneTimeCopyOnWriteArrayList<>(-1))
       .isInstanceOf(IllegalArgumentException.class)
-      .hasMessage("Illegal Capacity: -1");
+      .hasMessage("initialCapacity (-1) < 0");
   }
 
   @Test

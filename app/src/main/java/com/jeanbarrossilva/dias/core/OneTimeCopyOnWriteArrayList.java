@@ -16,9 +16,6 @@
 
 package com.jeanbarrossilva.dias.core;
 
-import android.annotation.SuppressLint;
-
-import java.lang.reflect.Field;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,15 +24,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.Spliterator;
-import java.util.function.BiConsumer;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 
 import static com.jeanbarrossilva.dias.core.ArrayLists.reserveExactCapacity;
 import static java.lang.Math.max;
 import static java.util.Arrays.asList;
-import static java.util.Arrays.binarySearch;
 import static java.util.Arrays.copyOf;
 import static java.util.Objects.checkIndex;
 
@@ -57,48 +54,40 @@ import static java.util.Objects.checkIndex;
  * This class isn't thread-safe, as the backing array gets copied only one time
  * after the first write to the list; therefore, subsequent modifications to the
  * list are subject to the same race conditions of a standard, non-concurrent
- * {@link ArrayList}.
- * <p>
- * <b>NOTE</b>: The array gets copied even when the requested operation won't
- * change the list. {@code addAll(List.of())} adds nothing; yet, the array is
- * still copied.
+ * {@link ArrayList}. For thread-safety, see {@link CopyOnWriteArrayList}.
  *
  * @author Jean Silva
  * @param <Element> An element of this list.
- * @see #addAll(Collection)
- * @see List#of()
  */
-@SuppressLint("DiscouragedPrivateApi")
-@SuppressWarnings("JavaReflectionMemberAccess")
 public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
-  private Element[] view;
+  private Element[] backingArray;
   private boolean isImmutableOrderedSetLike;
   private final int initialCapacity;
 
   private static final class SubList<Element>
     extends AbstractList<Element>
     implements RandomAccess {
-    final Element[] view;
-    final int startIndex;
-    final int endIndex;
+    private final Element[] backingArray;
+    private final int startIndex;
+    private final int endIndex;
 
     SubList(
-      final Element[] view,
+      final Element[] backingArray,
       final int startIndex,
       final int endIndex
     ) throws ArrayIndexOutOfBoundsException {
       if (startIndex < 0)
         throw new ArrayIndexOutOfBoundsException(startIndex);
-      if (startIndex > endIndex || endIndex > view.length)
+      if (startIndex > endIndex || endIndex > backingArray.length)
         throw new ArrayIndexOutOfBoundsException(endIndex);
-      this.view = view;
+      this.backingArray = backingArray;
       this.startIndex = startIndex;
       this.endIndex = endIndex;
     }
 
     @Override
-    public Element get(int index) {
-      return view[startIndex + index];
+    public Element get(int index) throws ArrayIndexOutOfBoundsException {
+      return backingArray[startIndex + index];
     }
 
     @Override
@@ -120,10 +109,7 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
     throws IllegalArgumentException {
     if (initialCapacity < 0)
       throw new IllegalArgumentException(
-        // the message is quite odd, but that's how this exception is thrown
-        // when calling `super(int)` with a negative capacity as of Java 17.
-        // we'll keep it that way here for mere consistency.
-        "Illegal Capacity: " + initialCapacity
+        "initialCapacity (" + initialCapacity + ") < 0"
       );
     this.isImmutableOrderedSetLike = false;
     this.initialCapacity = initialCapacity;
@@ -134,24 +120,28 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
    * incomparable, equal or unsorted elements. In such a list, elements will be
    * indexed linearly (rather than through binary search).
    *
-   * @param view The backing array.
+   * @param backingArray Array to which the list acts as a view until the first
+   *   modification on the list; it's also the array to be copied upon such
+   *   modification.
    * @see #OneTimeCopyOnWriteArrayList(Object[], boolean)
    */
-  public OneTimeCopyOnWriteArrayList(final Element[] view) {
-    this(view, /* isImmutableOrderedSetLike = */ false);
+  public OneTimeCopyOnWriteArrayList(final Element[] backingArray) {
+    this(backingArray, /* isImmutableOrderedSetLike = */ false);
   }
 
   /**
    * Instantiates a {@link OneTimeCopyOnWriteArrayList}.
    *
-   * @param view The backing array.
+   * @param backingArray Array to which the list acts as a view until the first
+   *   modification on the list; it's also the array to be copied upon such
+   *   modification.
    * @param isImmutableOrderedSetLike Whether the view will remain unchanged
    *   throughout the list's lifetime and contains only comparable, distinct
    *   elements which are already sorted. This being {@code true} enables
    *   indexing the view by the list through binary search (as opposed to
    *   linearly).
    *   <p>
-   *   The immutability, comparability and duplicate-free aspects are
+   *   The immutability, comparability, duplicate-free and sorting aspects are
    *   invariants, and ensuring they're satisfied is a responsibility of the
    *   caller. A one-time CoW list employs minimal to zero checking on whether
    *   these assumptions hold true, and violating them may result in incorrect
@@ -159,41 +149,54 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
    * @see Comparable
    */
   public OneTimeCopyOnWriteArrayList(
-    final Element[] view,
+    final Element[] backingArray,
     final boolean isImmutableOrderedSetLike
   ) {
-    this.view = view;
+    this.backingArray = backingArray;
     this.isImmutableOrderedSetLike = isImmutableOrderedSetLike;
-    this.initialCapacity = view.length;
+    this.initialCapacity = backingArray.length;
   }
 
   @Override
   public boolean add(final Element element) {
-    copyViewToBufferIdempotently();
+    if (backingArray != null)
+      copyAndDereferenceBackingArray();
     return super.add(element);
   }
 
   @Override
   public boolean addAll(final int index, Collection<? extends Element> c) {
-    copyViewToBufferIdempotently();
+    if (backingArray != null) {
+      checkIndex(index, backingArray.length + 1);
+      copyAndDereferenceBackingArray();
+    }
     return super.addAll(index, c);
   }
 
   @Override
   public boolean addAll(final Collection<? extends Element> c) {
-    copyViewToBufferIdempotently();
+    if (c.isEmpty())
+      return false;
+    if (backingArray != null)
+      copyAndDereferenceBackingArray();
     return super.addAll(c);
   }
 
   @Override
   public void clear() {
-    copyViewToBufferIdempotently();
+    if (backingArray != null) {
+      if (backingArray.length == 0)
+        return;
+      copyAndDereferenceBackingArray();
+    }
     super.clear();
   }
 
   @Override
   public Object clone() {
-    return view == null ? super.clone() : subList(0, view.length);
+    return backingArray == null
+      ? super.clone()
+      : subList(0, backingArray.length);
   }
 
   @Override
@@ -203,94 +206,102 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
 
   @Override
   public boolean equals(final Object o) {
-    if (view == null)
+    if (backingArray == null)
       return super.equals(o);
-    else if (o instanceof List<?> typedO)
-      return view.length == typedO.size() && asList(view).equals(typedO);
-    else
-      return false;
+    if (o instanceof List<?> typedO) {
+      if (backingArray.length != typedO.size())
+        return false;
+      for (int index = 0; index < backingArray.length; index++)
+        if (!Objects.equals(backingArray[index], typedO.get(index)))
+          return false;
+      return true;
+    }
+    return false;
   }
 
   @Override
   public Element get(final int index) throws IndexOutOfBoundsException {
-    return view == null ? super.get(index) : view[index];
+    return backingArray == null ? super.get(index) : backingArray[index];
   }
 
   @Override
   public Element getFirst() throws NoSuchElementException {
-    if (view == null)
+    if (backingArray == null)
       return super.getFirst();
-    else if (view.length == 0)
+    if (backingArray.length == 0)
       throw new NoSuchElementException();
-    else
-      return view[0];
+    return backingArray[0];
   }
 
   @Override
   public Element getLast() throws NoSuchElementException {
-    if (view == null)
+    if (backingArray == null)
       return super.getLast();
-    else if (view.length == 0)
+    if (backingArray.length == 0)
       throw new NoSuchElementException();
-    else
-      return view[view.length - 1];
+    return backingArray[backingArray.length - 1];
   }
 
   @Override
   public int hashCode() {
-    return view == null ? super.hashCode() : Arrays.hashCode(view);
+    return backingArray == null
+      ? super.hashCode()
+      : Arrays.hashCode(backingArray);
   }
 
   @Override
+  @SuppressWarnings("CatchMayIgnoreException")
   public int indexOf(final Object o) {
-    if (view == null)
+    if (backingArray == null)
       return super.indexOf(o);
     if (isImmutableOrderedSetLike)
-      try { return max(binarySearch(view, o), -1); }
-      catch (final ClassCastException | IllegalArgumentException exception) {
-        // welp! we were lied to… :(
-        isImmutableOrderedSetLike = false;
-      }
-    for (int index = 0; index < view.length; index++) {
-      final Element element = view[index];
-      if (element == o || element.equals(o))
+      try { return findIndexWithBinarySearch(o); }
+      catch (final IllegalStateException exception) {}
+    for (int index = 0; index < backingArray.length; index++)
+      if (Objects.equals(backingArray[index], o))
         return index;
-    }
     return -1;
   }
 
   @Override
   public Iterator<Element> iterator() {
-    return view == null ? super.iterator() : Arrays.stream(view).iterator();
+    return backingArray == null
+      ? super.iterator()
+      : Arrays.stream(backingArray).iterator();
   }
 
   @Override
   public int lastIndexOf(final Object o) {
-    if (view == null)
+    if (backingArray == null)
       return super.lastIndexOf(o);
     if (isImmutableOrderedSetLike)
       return indexOf(o);
-    for (int index = view.length - 1; index >= 0; index--)
-      if (view[index].equals(o))
+    for (int index = backingArray.length - 1; index >= 0; index--)
+      if (Objects.equals(backingArray[index], o))
         return index;
     return -1;
   }
 
   @Override
   public ListIterator<Element> listIterator() {
-    return view == null ? super.listIterator() : asList(view).listIterator();
+    return backingArray == null
+      ? super.listIterator()
+      : asList(backingArray).listIterator();
   }
 
   @Override
   public ListIterator<Element> listIterator(final int index) {
-    return view == null
+    return backingArray == null
       ? super.listIterator(index)
-      : asList(view).listIterator(index);
+      : asList(backingArray).listIterator(index);
   }
 
   @Override
   public Element remove(final int index) throws IndexOutOfBoundsException {
-    copyViewToBufferIdempotently();
+    if (backingArray != null) {
+      checkIndex(index, backingArray.length);
+      copyAndDereferenceBackingArray();
+    }
     return super.remove(index);
   }
 
@@ -298,219 +309,154 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   public boolean remove(final Object o) {
     if (isImmutableOrderedSetLike && !contains(o))
       return false;
-    copyViewToBufferIdempotently();
+    if (backingArray != null)
+      copyAndDereferenceBackingArray();
     return super.remove(o);
   }
 
   @Override
   public boolean removeAll(final Collection<?> c) {
-    if (isImmutableOrderedSetLike && c.size() <= view.length) {
-      boolean mayCopy = false;
+    if (isImmutableOrderedSetLike) {
+      boolean mayCoW = false;
       for (final Object element: c)
         if (contains(element)) {
-          mayCopy = true;
+          mayCoW = true;
           break;
         }
-      if (!mayCopy)
+      if (!mayCoW)
         return false;
     }
-    copyViewToBufferIdempotently();
+    if (backingArray != null)
+      copyAndDereferenceBackingArray();
     return super.removeAll(c);
   }
 
   @Override
   public Element removeFirst() throws NoSuchElementException {
-    if (view == null)
+    if (backingArray == null)
       return super.removeFirst();
-    else if (view.length == 0)
+    if (backingArray.length == 0)
       throw new NoSuchElementException();
-    else {
-      copyViewToBufferIdempotently();
-      return super.removeFirst();
-    }
+    copyAndDereferenceBackingArray();
+    return super.removeFirst();
   }
 
   @Override
   public boolean removeIf(final Predicate<? super Element> filter)
     throws NullPointerException {
-    if (view == null)
-      return super.removeIf(filter);
-    else if (view.length == 0)
-      return false;
-    else {
-      copyViewToBufferIdempotently();
-      return super.removeIf(filter);
+    if (backingArray != null) {
+      if (backingArray.length == 0)
+        return false;
+      copyAndDereferenceBackingArray();
     }
+    return super.removeIf(filter);
   }
 
   @Override
   public Element removeLast() throws NoSuchElementException {
-    if (view == null)
+    if (backingArray == null)
       return super.removeLast();
-    else if (view.length == 0)
+    if (backingArray.length == 0)
       throw new NoSuchElementException();
-    else {
-      copyViewToBufferIdempotently();
-      return super.removeLast();
-    }
+    copyAndDereferenceBackingArray();
+    return super.removeLast();
   }
 
   @Override
   protected void removeRange(final int fromIndex, final int toIndex)
     throws IndexOutOfBoundsException {
-    if (view == null)
-      super.removeRange(fromIndex, toIndex);
-    else if (fromIndex < 0)
-      throw new ArrayIndexOutOfBoundsException(fromIndex);
-    else if (toIndex >= view.length)
-      throw new ArrayIndexOutOfBoundsException(toIndex);
-    else {
-      copyViewToBufferIdempotently();
-      super.removeRange(fromIndex, toIndex);
+    if (backingArray != null) {
+      if (fromIndex < 0)
+        throw new ArrayIndexOutOfBoundsException(fromIndex);
+      if (toIndex >= backingArray.length)
+        throw new ArrayIndexOutOfBoundsException(toIndex);
+      copyAndDereferenceBackingArray();
     }
+    super.removeRange(fromIndex, toIndex);
   }
 
   @Override
   public Element set(final int index, final Element element)
     throws IndexOutOfBoundsException {
-    if (view != null) {
-      checkIndex(index, view.length);
-      copyViewToBufferIdempotently();
+    if (backingArray != null) {
+      checkIndex(index, backingArray.length);
+      copyAndDereferenceBackingArray();
     }
     return super.set(index, element);
   }
 
   @Override
   public int size() {
-    return view == null ? super.size() : view.length;
+    return backingArray == null ? super.size() : backingArray.length;
   }
 
   @Override
   public Spliterator<Element> spliterator() {
-    return view == null
+    return backingArray == null
       ? super.spliterator()
-      : Arrays.stream(view).spliterator();
+      : Arrays.stream(backingArray).spliterator();
   }
 
   @Override
   public List<Element> subList(final int fromIndex, final int toIndex)
     throws IndexOutOfBoundsException {
-    return view == null
+    return backingArray == null
       ? super.subList(fromIndex, toIndex)
-      : new SubList<>(view, fromIndex, toIndex);
+      : new SubList<>(backingArray, fromIndex, toIndex);
   }
 
   @Override
   public Object[] toArray() {
-    return view == null ? super.toArray() : copyOf(view, view.length);
+    return backingArray == null
+      ? super.toArray()
+      : copyOf(backingArray, backingArray.length);
   }
 
   @Override
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"RedundantCast", "unchecked"})
   public <T> T[] toArray(final T[] a) throws NullPointerException {
-    if (view == null)
+    if (backingArray == null)
       return super.toArray(a);
     if (a == null)
       throw new NullPointerException("a");
-    final T[] result = (T[]) copyOf(view, a.length, a.getClass());
-    if (view.length < result.length)
-      result[view.length] = null;
+    final T[] result;
+    if (backingArray.length <= a.length) {
+      System.arraycopy(
+        /* src = */     backingArray,
+        /* srcPost = */ 0,
+        /* dest = */    (Object[]) a,
+        /* destPos = */ 0,
+        /* length = */  backingArray.length + 1
+      );
+      result = a;
+      if (backingArray.length < result.length)
+        result[backingArray.length] = null;
+    } else
+      result = (T[]) copyOf(backingArray, a.length, a.getClass());
     return result;
   }
 
-  @SuppressWarnings("CatchMayIgnoreException")
-  private void copyViewToBufferIdempotently() {
-    if (view == null)
-      return;
-    boolean[] didCopyEfficiently = new boolean[1];
-    try {
-      withBuffer((bufferField, buffer) -> {
-        // reading the buffer is already dangerous, and we'll go one step
-        // further: re-set it and adapt the size of the list to its length.
-        // if our recklessness throws an exception, we'll do it less
-        // efficiently—but safely.
-        try { bufferField.set(this, new Object[initialCapacity]); }
-        catch (final IllegalAccessException cause) {
-          throw new RuntimeException(cause);
-        }
-        Field sizeField = null;
-        try { sizeField = ArrayList.class.getDeclaredField("size"); }
-        catch (final NoSuchFieldException exception) {}
-        if (sizeField != null) {
-          final boolean wasSizeAccessible = sizeField.isAccessible();
-          if (!wasSizeAccessible)
-            try { sizeField.setAccessible(true); }
-            catch (final RuntimeException exception) {}
-          try {
-            sizeField.set(this, initialCapacity);
-            didCopyEfficiently[0] = true;
-          } catch (final IllegalAccessException exception) {
-            didCopyEfficiently[0] = false;
-          }
-          try { sizeField.setAccessible(wasSizeAccessible); }
-          catch (final RuntimeException cause) {
-            throw new SecurityException(cause);
-          }
-        }
+  private void copyAndDereferenceBackingArray() {
+    // not so great: the default initial capacity may be different from the
+    // user-defined one; if so, we'll have to shrink or grow.
+    //
+    // accessing the superclass' backing array and the superclass' size would
+    // prevent us from having to do this, but these are implementation details,
+    // and are so very finicky to meddle with; not worth the hassle whatsoever.
+    reserveExactCapacity(this, initialCapacity);
+    super.addAll(this);
 
-        // something went wrong along the way… well, let us put the previous
-        // buffer we've captured back into its place, as if nothing's changed.
-        // we'll go through the fallback.
-        if (!didCopyEfficiently[0])
-          try { bufferField.set(this, buffer); }
-          catch (final IllegalAccessException cause) {
-            throw new RuntimeException(cause);
-          }
-
-        if (view == null)
-          return;
-        System.arraycopy(
-          /* src = */     view,
-          /* srcPos = */  0,
-          /* dest = */    buffer,
-          /* destPos = */ 0,
-          /* length = */  buffer.length
-        );
-      });
-    } catch (final RuntimeException exception) {
-      assert exception instanceof SecurityException
-          || exception.getCause() instanceof IllegalAccessException
-           : "couldn't copy view to buffer";
-      didCopyEfficiently[0] = false;
-    }
-
-    if (!didCopyEfficiently[0]) {
-      // not so great: the default initial capacity may be different from the
-      // user-defined one; if so, we'll have to shrink or grow. this is one of
-      // the inefficiencies I alluded to.
-      reserveExactCapacity(this, initialCapacity);
-      super.addAll(asList(view));
-    }
-
-    view = null;
+    backingArray = null;
     isImmutableOrderedSetLike = false;
   }
 
-  @SuppressWarnings("unchecked")
-  private void withBuffer(final BiConsumer<Field, Element[]> action)
-    throws SecurityException {
-    Field bufferField = null;
-    try { bufferField = ArrayList.class.getDeclaredField("elementData"); }
-    catch (final NoSuchFieldException exception) {
-      assert false : "buffer not found";
+  private int findIndexWithBinarySearch(final Object key)
+    throws IllegalStateException {
+    try { return max(Arrays.binarySearch(backingArray, key), -1); }
+    catch (final ClassCastException | IllegalArgumentException cause) {
+      // welp! we were lied to… :(
+      isImmutableOrderedSetLike = false;
+      throw new IllegalStateException(cause);
     }
-    final boolean wasBufferAccessible = bufferField.isAccessible();
-    if (!wasBufferAccessible)
-      try { bufferField.setAccessible(true); }
-      catch (final RuntimeException cause) {
-        throw new SecurityException(cause);
-      }
-    Object[] buffer = new Object[0];
-    try { buffer = (Object[]) bufferField.get(this); }
-    catch (final IllegalAccessException exception) {
-      assert false : "buffer was found, but is inaccessible";
-    }
-    action.accept(bufferField, (Element[]) buffer);
-    bufferField.setAccessible(wasBufferAccessible);
   }
 }
