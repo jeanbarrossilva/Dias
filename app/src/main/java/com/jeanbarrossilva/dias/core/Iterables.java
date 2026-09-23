@@ -1,12 +1,33 @@
-package com.jeanbarrossilva.dias;
+package com.jeanbarrossilva.dias.core;
 
 import androidx.annotation.NonNull;
 
+import com.google.common.collect.ContiguousSet;
+
+import java.util.Collection;
 import java.util.Iterator;
 
 /** Extensions for {@link Iterable}s. */
 public class Iterables {
   private Iterables() {}
+
+  /**
+   * Returns the indices of the iterable.
+   *
+   * @param self Iterable whose indices will be returned.
+   */
+  @NonNull
+  public static ContiguousSet<Integer> getIndices(
+    @NonNull final Iterable<?> self
+  ) {
+    if (self instanceof Collection<?> s)
+      return getIndices(s.size());
+    final Iterator<?> iterator = self.iterator();
+    int length = 0;
+    for (; iterator.hasNext(); length++, iterator.next())
+      length++;
+    return getIndices(length);
+  }
 
   /**
    * Joins the string representation of every element to a single string.
@@ -38,5 +59,12 @@ public class Iterables {
       jointBuilder.append(next);
     }
     return jointBuilder.toString();
+  }
+
+  @NonNull
+  private static ContiguousSet<Integer> getIndices(final int length) {
+    return length == 0
+      ? ContiguousSets.withoutIntegers
+      : ContiguousSet.closedOpen(0, length);
   }
 }

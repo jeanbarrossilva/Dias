@@ -32,7 +32,7 @@ public final class LauncherAssert
   @NotNull
   @SuppressWarnings("resource")
   public LauncherAssert hasPinned(final int index) {
-    describedAs("is " + actual().handles[index] + " pinned")
+    describedAs("is " + actual().getHandles().get(index) + " pinned")
       .extracting(launcher -> launcher.isPinned(index), Assertions.as(BOOLEAN))
       .isEqualTo(true);
     return this;
@@ -41,7 +41,7 @@ public final class LauncherAssert
   @NotNull
   @SuppressWarnings("resource")
   public LauncherAssert hasUnpinned(final int index) {
-    describedAs("is " + actual().handles[index] + " unpinned")
+    describedAs("is " + actual().getHandles().get(index) + " unpinned")
       .extracting(launcher -> launcher.isPinned(index), Assertions.as(BOOLEAN))
       .isEqualTo(false);
     return this;
@@ -51,7 +51,7 @@ public final class LauncherAssert
   @SuppressWarnings({"resource", "UnusedReturnValue"})
   public LauncherAssert hasLaunched(final int index)
     throws AssertionError {
-    final Launcher.Handle handle = actual().handles[index];
+    final Launcher.Handle handle = actual().getHandles().get(index);
     intended(hasComponent(handle.name));
     assertNoUnverifiedIntents();
     return this;
@@ -65,7 +65,7 @@ public final class LauncherAssert
   @NotNull
   public ListAssert<Launcher.Handle> handles() {
     return describedAs("handles").extracting(
-      launcher -> Arrays.asList(launcher.handles),
+      Launcher::getHandles,
       Assertions.as(list(Launcher.Handle.class))
     );
   }

@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias;
+package com.jeanbarrossilva.dias.core;
 
 import org.agrona.collections.IntHashSet;
 import org.jetbrains.annotations.NotNull;

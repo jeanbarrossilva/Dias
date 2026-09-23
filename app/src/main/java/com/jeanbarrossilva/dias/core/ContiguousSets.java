@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias;
+package com.jeanbarrossilva.dias.core;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;

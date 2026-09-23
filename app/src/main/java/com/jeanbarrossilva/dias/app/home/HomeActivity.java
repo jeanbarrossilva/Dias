@@ -6,11 +6,9 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.jeanbarrossilva.dias.IntHashSets;
+import com.jeanbarrossilva.dias.core.IntHashSets;
 import com.jeanbarrossilva.dias.Launcher;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
-
-import java.util.Set;
 
 public class HomeActivity extends Activity {
   @Nullable

@@ -12,11 +12,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-import static com.jeanbarrossilva.dias.Arrays.getIndices;
+import static com.jeanbarrossilva.dias.core.Iterables.getIndices;
 import static com.jeanbarrossilva.dias.LauncherAssert.assertThat;
 import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,14 +56,14 @@ public class LauncherTests {
       Intents.init();
     }
 
-    @SuppressWarnings("resource")
     @Test
     public void throwsOnOutOfBoundsIndex() {
       final var launcher = sampleLauncher();
-      final int index = launcher.handles.length;
+      final int index = launcher.getHandles().size();
       assertThatThrownBy(() -> launcher.launch(index))
         .isInstanceOf(IndexOutOfBoundsException.class)
         .hasMessage("Index out of range: " + index);
+      launcher.close();
     }
 
     @Test
@@ -84,7 +85,7 @@ public class LauncherTests {
     @Test
     public void handlesAreUnpinnedByDefault() {
       final var launcher = sampleLauncher();
-      for (final int index: getIndices(launcher.handles))
+      for (final int index: getIndices(launcher.getHandles()))
         assertThat(launcher).hasUnpinned(index);
       assertThat(launcher).pins().isEmpty();
     }
@@ -96,7 +97,7 @@ public class LauncherTests {
       assertThat(launcher)
         .hasPinned(0)
         .pins()
-        .containsExactly(launcher.handles[0]);
+        .containsExactly(launcher.getHandles().getFirst());
       launcher.close();
     }
 
@@ -108,72 +109,72 @@ public class LauncherTests {
       assertThat(launcher)
         .hasPinned(0)
         .pins()
-        .containsExactly(launcher.handles[0]);
+        .containsExactly(launcher.getHandles().getFirst());
       launcher.close();
     }
 
     @Test
     public void pinsVarious() {
       final var launcher = sampleLauncher();
-      final IntHashSet pinIndices = IntHashSets.of(0, 1);
+      final IntHashSet pinIndices = com.jeanbarrossilva.dias.core.IntHashSets.of(0, 1);
       launcher.pin(pinIndices);
+      final List<Launcher.Handle> handles = launcher.getHandles();
       assertThat(launcher)
         .hasPinned(0)
         .hasPinned(1)
         .pins()
-        .containsExactly(launcher.handles[0], launcher.handles[1]);
+        .containsExactly(handles.getFirst(), handles.get(1));
       launcher.close();
     }
 
     @Test
     public void pinsVariousIdempotently() {
       final var launcher = sampleLauncher();
-      final IntHashSet pinIndices = IntHashSets.of(0, 1);
+      final IntHashSet pinIndices = com.jeanbarrossilva.dias.core.IntHashSets.of(0, 1);
       launcher.pin(pinIndices);
       launcher.pin(pinIndices);
+      final List<Launcher.Handle> handles = launcher.getHandles();
       assertThat(launcher)
         .hasPinned(0)
         .hasPinned(1)
         .pins()
-        .containsExactly(launcher.handles[0], launcher.handles[1]);
+        .containsExactly(handles.getFirst(), handles.get(1));
       launcher.close();
     }
 
     @Test
     public void unpinsOne() {
       final var launcher = sampleLauncher();
-      final IntHashSet pinningIndices = IntHashSets.of(0, 1, 2, 3);
+      final IntHashSet pinningIndices = com.jeanbarrossilva.dias.core.IntHashSets.of(0, 1, 2, 3);
       launcher.pin(pinningIndices);
       launcher.unpin(0);
+      final List<Launcher.Handle> handles = launcher.getHandles();
       assertThat(launcher)
         .hasUnpinned(0)
         .hasPinned(1)
         .hasPinned(2)
         .hasPinned(3)
         .pins()
-        .containsExactly(
-          launcher.handles[1],
-          launcher.handles[2],
-          launcher.handles[3]
-        );
+        .containsExactly(handles.get(1), handles.get(2), handles.get(3));
       launcher.close();
     }
 
     @Test
     public void unpinsVarious() {
       final var launcher = sampleLauncher();
-      final IntHashSet pinningIndices = IntHashSets.of(0, 1, 2, 3);
+      final IntHashSet pinningIndices = com.jeanbarrossilva.dias.core.IntHashSets.of(0, 1, 2, 3);
       launcher.pin(pinningIndices);
       pinningIndices.remove(2);
       pinningIndices.remove(3);
       launcher.unpin(pinningIndices);
+      final List<Launcher.Handle> handles = launcher.getHandles();
       assertThat(launcher)
         .hasUnpinned(0)
         .hasUnpinned(1)
         .hasPinned(2)
         .hasPinned(3)
         .pins()
-        .containsExactly(launcher.handles[2], launcher.handles[3]);
+        .containsExactly(handles.get(2), handles.get(3));
       launcher.close();
     }
 
@@ -186,14 +187,14 @@ public class LauncherTests {
       assertThat(pinningRef)
         .asInstanceOf(type(AtomicReference.class))
         .extracting(AtomicReference::get, as(type(Launcher.Pinning.class)))
-        .isEqualTo(new Launcher.Pinning(IntHashSets.of(0), true));
+        .isEqualTo(new Launcher.Pinning(com.jeanbarrossilva.dias.core.IntHashSets.of(0), true));
       launcher.close();
     }
 
     @Test
     public void listensToPinOfSome() {
       final var launcher = sampleLauncher();
-      final IntHashSet pinIndices = IntHashSets.of(0, 1);
+      final IntHashSet pinIndices = com.jeanbarrossilva.dias.core.IntHashSets.of(0, 1);
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       launcher.setOnPinningListener(pinningRef::set);
       launcher.pin(pinIndices);
@@ -214,14 +215,14 @@ public class LauncherTests {
       assertThat(pinningRef)
         .asInstanceOf(type(AtomicReference.class))
         .extracting(AtomicReference::get, as(type(Launcher.Pinning.class)))
-        .isEqualTo(new Launcher.Pinning(IntHashSets.of(0), false));
+        .isEqualTo(new Launcher.Pinning(com.jeanbarrossilva.dias.core.IntHashSets.of(0), false));
       launcher.close();
     }
 
     @Test
     public void listensToUnpinOfSome() {
       final var launcher = sampleLauncher();
-      final IntHashSet pinningIndices = IntHashSets.of(0, 1);
+      final IntHashSet pinningIndices = com.jeanbarrossilva.dias.core.IntHashSets.of(0, 1);
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       launcher.pin(pinningIndices);
       launcher.setOnPinningListener(pinningRef::set);

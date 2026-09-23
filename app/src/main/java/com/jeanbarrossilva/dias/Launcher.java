@@ -10,6 +10,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.jeanbarrossilva.dias.core.IntHashSets;
+import com.jeanbarrossilva.dias.core.OneTimeCopyOnWriteArrayList;
+
 import org.agrona.collections.IntHashSet;
 import org.jetbrains.annotations.NotNull;
 
@@ -20,7 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import static com.jeanbarrossilva.dias.Iterables.joinToString;
+import static com.jeanbarrossilva.dias.core.Iterables.joinToString;
 import static java.util.Arrays.binarySearch;
 import static java.util.Objects.hash;
 
@@ -30,12 +33,8 @@ import static java.util.Objects.hash;
  * for every supported operation to be performed.
  */
 public final class Launcher implements Closeable {
-  /**
-   * Unique handles to all applications visible to the user, sorted by label.
-   */
-  @NonNull public final Handle[] handles;
-
   @NonNull private final WeakReference<Context> contextRef;
+  @NonNull private final Handle[] handles;
   @NonNull private final IntHashSet pinIndices;
   @Nullable private Consumer<@NotNull Pinning> onPinningListener;
 
@@ -159,6 +158,18 @@ public final class Launcher implements Closeable {
     this.handles = handles;
     this.pinIndices = new IntHashSet();
     this.onPinningListener = null;
+  }
+
+  /**
+   * Obtains the unique handles to all applications visible to the user, sorted
+   * by label.
+   */
+  @NonNull
+  public OneTimeCopyOnWriteArrayList<Handle> getHandles() {
+    return new OneTimeCopyOnWriteArrayList<>(
+                                        handles,
+      /* isImmutableOrderedSetLike = */ true
+    );
   }
 
   /**
