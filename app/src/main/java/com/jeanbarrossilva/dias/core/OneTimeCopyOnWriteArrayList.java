@@ -43,9 +43,9 @@ import static java.util.Objects.checkIndex;
  * <p>
  * Upon instantiating this class, the backing array won't be copied immediately,
  * nor copied at every mutation. Rather, it's only referenced strongly, with
- * the list acting as a view to its elements by default; then, upon the first
- * modification request (e.g., a call to {@link #add(Object)}), the array is
- * copied and the strong reference to it is dropped.
+ * the list acting as a backing array to its elements by default; then, upon the
+ * first modification request (e.g., a call to {@link #add(Object)}), the array
+ * is copied and the strong reference to it is dropped.
  * <p>
  * As a consequence, changes to the array are only reflected on the list until
  * the first modification to the list. Conversely, changes to the list never
@@ -63,6 +63,11 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   private Element[] backingArray;
   private boolean isImmutableOrderedSetLike;
   private final int initialCapacity;
+
+  // ideally, this capacity is the same as the superclass'; but, because the
+  // superclass' isn't part of the public API as of Java 17 , we hard-code it
+  // here.
+  static final int DEFAULT_INITIAL_CAPACITY = 10;
 
   private static final class SubList<Element>
     extends AbstractList<Element>
@@ -97,7 +102,15 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   /**
-   * Instantiates a {@link OneTimeCopyOnWriteArrayList}.
+   * Instantiates a one-time CoW array list, with linear-search-based indexing
+   * and a default initial capacity of 10 elements for the backing array.
+   */
+  public OneTimeCopyOnWriteArrayList() {
+    this(DEFAULT_INITIAL_CAPACITY);
+  }
+
+  /**
+   * Instantiates a one-time CoW array list with linear-search-based indexing.
    *
    * @param initialCapacity Maximum amount of elements that the list will be
    *  able to hold until it grows or gets trimmed to its size, after its backing
@@ -111,18 +124,19 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
       throw new IllegalArgumentException(
         "initialCapacity (" + initialCapacity + ") < 0"
       );
+    this.backingArray = null;
     this.isImmutableOrderedSetLike = false;
     this.initialCapacity = initialCapacity;
   }
 
   /**
-   * Instantiates a {@link OneTimeCopyOnWriteArrayList} whose view contains
+   * Instantiates a one-time CoW array list whose backing array contains
    * incomparable, equal or unsorted elements. In such a list, elements will be
    * indexed linearly (rather than through binary search).
    *
-   * @param backingArray Array to which the list acts as a view until the first
-   *   modification on the list; it's also the array to be copied upon such
-   *   modification.
+   * @param backingArray Array to which the list acts as a backing array until
+   *   the first modification on the list; it's also the array to be copied upon
+   *   such modification.
    * @see #OneTimeCopyOnWriteArrayList(Object[], boolean)
    */
   public OneTimeCopyOnWriteArrayList(final Element[] backingArray) {
@@ -132,20 +146,20 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   /**
    * Instantiates a {@link OneTimeCopyOnWriteArrayList}.
    *
-   * @param backingArray Array to which the list acts as a view until the first
-   *   modification on the list; it's also the array to be copied upon such
-   *   modification.
-   * @param isImmutableOrderedSetLike Whether the view will remain unchanged
-   *   throughout the list's lifetime and contains only comparable, distinct
-   *   elements which are already sorted. This being {@code true} enables
-   *   indexing the view by the list through binary search (as opposed to
-   *   linearly).
+   * @param backingArray Array to which the list acts as a backing array until
+   *   the first modification on the list; it's also the array to be copied upon
+   *   such modification.
+   * @param isImmutableOrderedSetLike Whether the backing array will remain
+   *   unchanged throughout the list's lifetime and contains only comparable,
+   *   distinct elements which are already sorted. This being {@code true}
+   *   enables the list to index the backing array through binary search (as
+   *   opposed to linearly).
    *   <p>
    *   The immutability, comparability, duplicate-free and sorting aspects are
    *   invariants, and ensuring they're satisfied is a responsibility of the
    *   caller. A one-time CoW list employs minimal to zero checking on whether
-   *   these assumptions hold true, and violating them may result in incorrect
-   *   indexing.
+   *   these assumptions hold true, and violating them may result in a negative
+   *   performance impact or incorrect indexing.
    * @see Comparable
    */
   public OneTimeCopyOnWriteArrayList(
@@ -454,6 +468,11 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
     try { return max(Arrays.binarySearch(backingArray, key), -1); }
     catch (final ClassCastException | IllegalArgumentException cause) {
       // welp! we were lied to… :(
+      //
+      // getting to this branch denotes that the instantiator of this list told
+      // us that the backing array adheres to the contract—although it doesn't,
+      // since we've found an element that's incomparable (casting) or
+      // out-of-order (illegal argument).
       isImmutableOrderedSetLike = false;
       throw new IllegalStateException(cause);
     }
