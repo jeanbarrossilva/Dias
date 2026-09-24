@@ -196,7 +196,10 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   public Object clone() {
     return backingArray == null
       ? super.clone()
-      : subList(0, backingArray.length);
+      : new OneTimeCopyOnWriteArrayList<>(
+        /* backingArray = */ copyOf(backingArray, backingArray.length),
+        isImmutableOrderedSetLike
+      );
   }
 
   @Override
@@ -271,11 +274,13 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
+  @SuppressWarnings("CatchMayIgnoreException")
   public int lastIndexOf(final Object o) {
     if (backingArray == null)
       return super.lastIndexOf(o);
     if (isImmutableOrderedSetLike)
-      return indexOf(o);
+      try { return findIndexWithBinarySearch(o); }
+      catch (final IllegalStateException exception) {}
     for (int index = backingArray.length - 1; index >= 0; index--)
       if (Objects.equals(backingArray[index], o))
         return index;
@@ -413,7 +418,7 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
-  @SuppressWarnings({"RedundantCast", "unchecked"})
+  @SuppressWarnings("unchecked")
   public <T> T[] toArray(final T[] a) throws NullPointerException {
     if (backingArray == null)
       return super.toArray(a);
@@ -421,14 +426,8 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
       throw new NullPointerException("a");
     final T[] result;
     if (backingArray.length <= a.length) {
-      System.arraycopy(
-        /* src = */     backingArray,
-        /* srcPost = */ 0,
-        /* dest = */    (Object[]) a,
-        /* destPos = */ 0,
-        /* length = */  backingArray.length + 1
-      );
-      result = a;
+      result =
+        (T[]) copyOf(backingArray, backingArray.length + 1, a.getClass());
       if (backingArray.length < result.length)
         result[backingArray.length] = null;
     } else
