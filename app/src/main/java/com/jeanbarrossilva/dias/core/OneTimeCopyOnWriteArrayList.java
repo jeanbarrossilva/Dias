@@ -281,6 +281,11 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
+  public boolean isEmpty() {
+    return backingArray == null ? super.isEmpty() : backingArray.length == 0;
+  }
+
+  @Override
   public Iterator<Element> iterator() {
     return backingArray == null
       ? super.iterator()
@@ -469,10 +474,10 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
     catch (final ClassCastException | IllegalArgumentException cause) {
       // welp! we were lied to… :(
       //
-      // getting to this branch denotes that the instantiator of this list told
-      // us that the backing array adheres to the contract—although it doesn't,
-      // since we've found an element that's incomparable (casting) or
-      // out-of-order (illegal argument).
+      // us getting here denotes that the instantiator of this list told us that
+      // the backing array adheres to the contract—even though it doesn't, since
+      // we've found an element that's incomparable (casting) or out of order
+      // (illegal argument).
       isImmutableOrderedSetLike = false;
       throw new IllegalStateException(cause);
     }
