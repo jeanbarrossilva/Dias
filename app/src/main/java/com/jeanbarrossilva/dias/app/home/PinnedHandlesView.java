@@ -31,7 +31,12 @@ public class PinnedHandlesView extends RecyclerView {
       final int viewType
     ) {
       final Context context = requireNonNull(parent.getContext());
-      final HandleView itemView = new HandleView(context);
+      final var itemView = new HandleView(context);
+      final var layoutParams = new LayoutParams(
+        /* width = */  LayoutParams.MATCH_PARENT,
+        /* height = */ LayoutParams.WRAP_CONTENT
+      );
+      itemView.setLayoutParams(layoutParams);
       return new ViewHolder(itemView);
     }
 
