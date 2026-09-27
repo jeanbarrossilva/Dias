@@ -43,9 +43,9 @@ public class OneTimeCopyOnWriteArrayListTests {
 
     @Test
     public void isViewToBackingArrayPriorToModifications() {
-      final var view = new Object[]{new Object(), new Object()};
-      final var list = new OneTimeCopyOnWriteArrayList<>(view);
-      assertThat(list).containsExactly(view);
+      final var backingArray = sampleBackingArray();
+      final var backedList = new OneTimeCopyOnWriteArrayList<>(backingArray);
+      assertThat(backedList).containsExactly(backingArray);
     }
   }
 

@@ -30,7 +30,6 @@ import java.util.Spliterator;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 
-import static com.jeanbarrossilva.dias.core.ArrayLists.reserveExactCapacity;
 import static java.lang.Math.max;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.copyOf;
@@ -42,19 +41,19 @@ import static java.util.Objects.checkIndex;
  * (CoW) semantics.
  * <p>
  * Upon instantiating this class, the backing array won't be copied immediately,
- * nor copied at every mutation. Rather, it's only referenced strongly, with
- * the list acting as a backing array to its elements by default; then, upon the
- * first modification request (e.g., a call to {@link #add(Object)}), the array
- * is copied and the strong reference to it is dropped.
+ * nor copied at every write. Rather, it's only referenced strongly, with the
+ * list acting as a view to the array by default; then, upon the first write to
+ * the list (e.g., a call to {@link #add(Object)}), the array is copied and the
+ * list's strong reference to it is dropped.
  * <p>
  * As a consequence, changes to the array are only reflected on the list until
- * the first modification to the list. Conversely, changes to the list never
- * alter the array.
+ * the first write to the list. Conversely, changes to the list never alter the
+ * array.
  * <p>
  * This class isn't thread-safe, as the backing array gets copied only one time
- * after the first write to the list; therefore, subsequent modifications to the
- * list are subject to the same race conditions of a standard, non-concurrent
- * {@link ArrayList}. For thread-safety, see {@link CopyOnWriteArrayList}.
+ * after the first write to the list; therefore, subsequent writes to the list
+ * are subject to the same race conditions as a standard, non-concurrent {@link
+ * ArrayList} is. For thread-safety, see {@link CopyOnWriteArrayList}.
  *
  * @author Jean Silva
  * @param <Element> An element of this list.
@@ -62,11 +61,18 @@ import static java.util.Objects.checkIndex;
 public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   private Element[] backingArray;
   private boolean isImmutableOrderedSetLike;
+
+  // this allows us to optimize CoW. this being `true` denotes that we're in
+  // the middle of copying the backing array to this list, and allows us to
+  // make so that `toArray()`—which is how CoW gets done in libcore's
+  // implementation— returns the backing array directly.
+  private boolean willCoW = false;
+
   private final int initialCapacity;
 
   // ideally, this capacity is the same as the superclass'; but, because the
-  // superclass' isn't part of the public API as of Java 17 , we hard-code it
-  // here.
+  // superclass' isn't part of Android API 36.1's libcore public API, we
+  // hard-code it here.
   static final int DEFAULT_INITIAL_CAPACITY = 10;
 
   private static final class SubList<Element>
@@ -146,11 +152,10 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   /**
    * Instantiates a {@link OneTimeCopyOnWriteArrayList}.
    *
-   * @param backingArray Array to which the list acts as a backing array until
-   *   the first modification on the list; it's also the array to be copied upon
-   *   such modification.
+   * @param backingArray Array to which the list acts as a view until the first
+   *   write to the list; it's also the array to be copied upon such write.
    * @param isImmutableOrderedSetLike Whether the backing array will remain
-   *   unchanged throughout the list's lifetime and contains only comparable,
+   *   unchanged throughout the list's lifetime and contain only comparable,
    *   distinct elements which are already sorted. This being {@code true}
    *   enables the list to index the backing array through binary search (as
    *   opposed to linearly).
@@ -159,7 +164,7 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
    *   invariants, and ensuring they're satisfied is a responsibility of the
    *   caller. A one-time CoW list employs minimal to zero checking on whether
    *   these assumptions hold true, and violating them may result in a negative
-   *   performance impact or incorrect indexing.
+   *   performance impact or undefined indexing.
    * @see Comparable
    */
   public OneTimeCopyOnWriteArrayList(
@@ -267,17 +272,12 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
-  @SuppressWarnings("CatchMayIgnoreException")
   public int indexOf(final Object o) {
     if (backingArray == null)
       return super.indexOf(o);
     if (isImmutableOrderedSetLike)
-      try { return findIndexWithBinarySearch(o); }
-      catch (final IllegalStateException exception) {}
-    for (int index = 0; index < backingArray.length; index++)
-      if (Objects.equals(backingArray[index], o))
-        return index;
-    return -1;
+      return findIndexWithBinaryOrLinearSearchFromHead(o);
+    return findIndexWithLinearSearchFromHead(o);
   }
 
   @Override
@@ -331,7 +331,8 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
 
   @Override
   public boolean remove(final Object o) {
-    if (isImmutableOrderedSetLike && !contains(o))
+    if (isImmutableOrderedSetLike
+      && findIndexWithBinaryOrLinearSearchFromHead(o) < 0)
       return false;
     if (backingArray != null)
       copyAndDereferenceBackingArray();
@@ -343,7 +344,7 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
     if (isImmutableOrderedSetLike) {
       boolean mayCoW = false;
       for (final Object element: c)
-        if (contains(element)) {
+        if (findIndexWithBinaryOrLinearSearchFromHead(element) >= 0) {
           mayCoW = true;
           break;
         }
@@ -392,7 +393,7 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
     if (backingArray != null) {
       if (fromIndex < 0)
         throw new ArrayIndexOutOfBoundsException(fromIndex);
-      if (toIndex >= backingArray.length)
+      if (toIndex > backingArray.length)
         throw new ArrayIndexOutOfBoundsException(toIndex);
       copyAndDereferenceBackingArray();
     }
@@ -431,9 +432,14 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
 
   @Override
   public Object[] toArray() {
-    return backingArray == null
-      ? super.toArray()
-      : copyOf(backingArray, backingArray.length);
+    if (backingArray == null)
+      return super.toArray();
+    if (willCoW)
+      // we're (possibly) copying the array to this list, so we don't need to
+      // follow the interface contract of always returning a "safe" array.
+      // this is for our use, only.
+      return backingArray;
+    return copyOf(backingArray, backingArray.length);
   }
 
   @Override
@@ -455,17 +461,36 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   private void copyAndDereferenceBackingArray() {
-    // not so great: the default initial capacity may be different from the
-    // user-defined one; if so, we'll have to shrink or grow.
-    //
-    // accessing the superclass' backing array and the superclass' size would
-    // prevent us from having to do this, but these are implementation details,
-    // and are so very finicky to meddle with; not worth the hassle whatsoever.
-    reserveExactCapacity(this, initialCapacity);
+    // libcore's implementation of `ArrayList.addAll(Collection<? extends E>)`
+    // will resort to `toArray()`, which, normally, would copy the array. but,
+    // in this very specific case, copying it isn't what we want; we'll cheat.
+    willCoW = true;
     super.addAll(this);
+    willCoW = false;
+
+    // accessing the superclass' backing array and the superclass' size would
+    // prevent us from having to shrink or grow, but these are implementation
+    // details, and are so very finicky to meddle with; not worth the hassle
+    // whatsoever.
+    if (initialCapacity < DEFAULT_INITIAL_CAPACITY)
+      super.trimToSize();
+    else
+      super.ensureCapacity(initialCapacity);
 
     backingArray = null;
     isImmutableOrderedSetLike = false;
+  }
+
+  // `findIndexWithBinary*()` methods presuppose that
+  // `isImmutableOrderedSetLike` is `true`: their optimization only makes sense
+  // if the instantiator's promised us that an element of the backing array can
+  // be found via binary search.
+
+  @SuppressWarnings("CatchMayIgnoreException")
+  private int findIndexWithBinaryOrLinearSearchFromHead(final Object key) {
+    try { return findIndexWithBinarySearch(key); }
+    catch (final IllegalStateException exception) {}
+    return findIndexWithLinearSearchFromHead(key);
   }
 
   private int findIndexWithBinarySearch(final Object key)
@@ -481,5 +506,12 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
       isImmutableOrderedSetLike = false;
       throw new IllegalStateException(cause);
     }
+  }
+
+  private int findIndexWithLinearSearchFromHead(final Object key) {
+    for (int index = 0; index < backingArray.length; index++)
+      if (Objects.equals(key, backingArray[index]))
+        return index;
+    return -1;
   }
 }
