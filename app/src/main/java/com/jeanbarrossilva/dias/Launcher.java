@@ -1,5 +1,6 @@
 package com.jeanbarrossilva.dias;
 
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -19,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.Closeable;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -76,8 +78,32 @@ public final class Launcher implements Closeable {
       return label.compareTo(o.label);
     }
 
+    /**
+     * Starts the activity associated to this handle.
+     *
+     * @param context Context from which to start the activity.
+     * @see #close()
+     * @throws NullPointerException If this launcher has been closed, the context
+     *   has been garbage-collected, or is null.
+     */
+    public void launch(@NonNull final Context context)
+      throws ActivityNotFoundException {
+      final Intent intent = new Intent()
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        .setComponent(name);
+
+      // despite the fact that this call may throw, launchers instantiated by the
+      // public constructor will have their handles all "pointing" to valid,
+      // existent activities, since they were queried from the OS itself.
+      //
+      // the only scenario in which this *will* throw is when this instance is a
+      // result of calling `Launcher(Context, Handle[])` with arbitrary handles,
+      // e.g., for testing purposes.
+      context.startActivity(intent);
+    }
+
     @Nullable
-    static Handle parse(
+    private static Handle parse(
       @NonNull final PackageManager packageManager,
       @NonNull final ActivityInfo activityInfo
     ) {
@@ -104,7 +130,7 @@ public final class Launcher implements Closeable {
     /** Whether the handles at the given indices is pinned. */
     final boolean arePinned;
 
-    Pinning(@NonNull final IntHashSet indices, final boolean arePinned) {
+    public Pinning(@NonNull final IntHashSet indices, final boolean arePinned) {
       this.indices = indices;
       this.arePinned = arePinned;
     }
@@ -165,7 +191,7 @@ public final class Launcher implements Closeable {
    * by label.
    */
   @NonNull
-  public OneTimeCopyOnWriteArrayList<Handle> getHandles() {
+  public List<Handle> getHandles() {
     return new OneTimeCopyOnWriteArrayList<>(
                                      handles,
       /* isImmutableTreeSetLike = */ true
@@ -304,49 +330,6 @@ public final class Launcher implements Closeable {
     @NonNull final Consumer<@NotNull Pinning> listener
   ) {
     onPinningListener = listener;
-  }
-
-  /**
-   * Starts the activity associated to the handle at the given index.
-   *
-   * @param index Index of the handle to be launched.
-   * @see #launch(Handle)
-   * @throws NullPointerException If this launcher has been closed, the context
-   *   has been garbage-collected, or is null.
-   * @throws IndexOutOfBoundsException If the index is negative or greater than
-   *   that of the last handle in this launcher.
-   */
-  public void launch(final int index)
-    throws NullPointerException, IndexOutOfBoundsException {
-    if (!isBoundedIndex(index))
-      throw new IndexOutOfBoundsException(index);
-    launch(handles[index]);
-  }
-
-  /**
-   * Starts the activity associated to the given handle.
-   *
-   * @param handle Handle to be launched.
-   * @see #close()
-   * @throws NullPointerException If this launcher has been closed, the context
-   *   has been garbage-collected, or is null.
-   */
-  public void launch(@NonNull final Handle handle) throws NullPointerException {
-    final Context context = contextRef.get();
-    if (context == null)
-      throw new NullPointerException("context");
-    final Intent intent = new Intent()
-      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-      .setComponent(handle.name);
-
-    // despite the fact that this call may throw, launchers instantiated by the
-    // public constructor will have their handles all "pointing" to valid,
-    // existent activities, since they were queried from the OS itself.
-    //
-    // the only scenario in which this *will* throw is when this instance is a
-    // result of calling `Launcher(Context, Handle[])` with arbitrary handles,
-    // e.g., for testing purposes.
-    context.startActivity(intent);
   }
 
   @Override

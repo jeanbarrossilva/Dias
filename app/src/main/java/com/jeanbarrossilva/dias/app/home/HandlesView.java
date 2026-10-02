@@ -76,7 +76,7 @@ public class HandlesView extends RecyclerView {
       final int position
     ) {
       final Launcher.Handle handle = getItem(position);
-      ((HandleView) holder.itemView).setHandle(launcher, handle);
+      ((HandleView) holder.itemView).setHandle(handle);
     }
 
     @Override

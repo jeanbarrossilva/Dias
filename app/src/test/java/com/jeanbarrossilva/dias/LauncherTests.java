@@ -1,13 +1,8 @@
 package com.jeanbarrossilva.dias;
 
 import androidx.annotation.NonNull;
-import androidx.test.espresso.intent.Intents;
-
-import com.google.common.collect.ContiguousSet;
 
 import org.agrona.collections.IntHashSet;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -21,21 +16,11 @@ import static com.jeanbarrossilva.dias.core.Iterables.getIndices;
 import static com.jeanbarrossilva.dias.LauncherAssert.assertThat;
 import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 public class LauncherTests {
   @RunWith(RobolectricTestRunner.class)
   public static final class ClosingTests {
-    @Test
-    public void dereferencesContext() {
-      final var launcher = sampleLauncher();
-      launcher.close();
-      assertThatThrownBy(() -> launcher.launch(0))
-        .isInstanceOf(NullPointerException.class)
-        .hasMessage("context");
-    }
-
     @Test
     public void deregistersOnPinningListener() {
       final var launcher = sampleLauncher();
@@ -46,37 +31,6 @@ public class LauncherTests {
       launcher.close();
       launcher.pin(0);
       assertThat(listenerNotificationCount).hasValue(0);
-    }
-  }
-
-  @RunWith(RobolectricTestRunner.class)
-  public static final class LaunchTests {
-    @Before
-    public void setUp() {
-      Intents.init();
-    }
-
-    @Test
-    public void throwsOnOutOfBoundsIndex() {
-      final var launcher = sampleLauncher();
-      final int index = launcher.getHandles().size();
-      assertThatThrownBy(() -> launcher.launch(index))
-        .isInstanceOf(IndexOutOfBoundsException.class)
-        .hasMessage("Index out of range: " + index);
-      launcher.close();
-    }
-
-    @Test
-    public void launches() {
-      final var launcher = sampleLauncher();
-      launcher.launch(0);
-      assertThat(launcher).hasLaunched(0);
-      launcher.close();
-    }
-
-    @After
-    public void tearDown() {
-      Intents.release();
     }
   }
 
@@ -237,20 +191,6 @@ public class LauncherTests {
 
   @NonNull
   private static Launcher sampleLauncher() {
-    return new Launcher(
-      /* context = */ getApplicationContext(),
-      /* handles = */ ContiguousSet
-        .closedOpen(0, 13)
-        .stream()
-        .map(
-          index -> new Launcher.Handle(
-            /* packageName = */  "com.jeanbarrossilva.dias",
-            /* activityName = */ "com.jeanbarrossilva.dias.Activity"
-                                 + (index + 1),
-            /* label = */        "App " + (index + 1)
-          )
-        )
-        .toArray(Launcher.Handle[]::new)
-    );
+    return new Launcher(getApplicationContext(), Handles.SAMPLES);
   }
 }

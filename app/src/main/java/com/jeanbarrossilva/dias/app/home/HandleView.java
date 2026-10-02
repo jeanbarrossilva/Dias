@@ -2,7 +2,6 @@ package com.jeanbarrossilva.dias.app.home;
 
 import android.content.ActivityNotFoundException;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -43,20 +42,14 @@ final public class HandleView extends AppCompatTextView {
     throw newUnsupportedInflationException();
   }
 
-  public void setHandle(
-    @NonNull final Launcher launcher,
-    @NonNull final Launcher.Handle handle
-  ) {
-    final Context context = getContext();
-    if (context == null)
-      return;
+  public void setHandle(@NonNull final Launcher.Handle handle) {
     setText(handle.label);
     setOnClickListener(clickedView -> {
       final Context launchContext = clickedView.getContext();
       if (launchContext == null)
         return;
       try {
-        launcher.launch(handle);
+        handle.launch(launchContext);
       } catch (final ActivityNotFoundException exception) {
         throw new RuntimeException(exception);
       }
