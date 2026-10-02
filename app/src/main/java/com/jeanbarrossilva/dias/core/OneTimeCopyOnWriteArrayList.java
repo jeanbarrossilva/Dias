@@ -20,25 +20,29 @@ import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
+import java.util.Comparator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.RandomAccess;
-import java.util.Spliterator;
+import java.util.TreeSet;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.copyOf;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.checkIndex;
 
 /**
  * An {@link ArrayList} with
- * <a href="https://en.wikipedia.org/wiki/Copy-on-write">copy-on-write</a>
- * (CoW) semantics.
+ * <a href="https://en.wikipedia.org/wiki/Copy-on-write">copy-on-write</a> (CoW)
+ * semantics.
  * <p>
  * Upon instantiating this class, the backing array won't be copied immediately,
  * nor copied at every write. Rather, it's only referenced strongly, with the
@@ -54,56 +58,256 @@ import static java.util.Objects.checkIndex;
  * after the first write to the list; therefore, subsequent writes to the list
  * are subject to the same race conditions as a standard, non-concurrent {@link
  * ArrayList} is. For thread-safety, see {@link CopyOnWriteArrayList}.
+ * <p>
+ * Finally, this implementation is optimized for Android's libcore—although no
+ * unsafe operations (e.g., reflection) are done and, thus, its outputs should
+ * be the same on any JDK implementation.
  *
  * @author Jean Silva
  * @param <Element> An element of this list.
  */
 public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   private Element[] backingArray;
-  private boolean isImmutableOrderedSetLike;
+  private boolean isImmutableTreeSetLike;
 
-  // this allows us to optimize CoW. this being `true` denotes that we're in
+  // this allows us to optimize CoW. this being `false` denotes that we're in
   // the middle of copying the backing array to this list, and allows us to
-  // make so that `toArray()`—which is how CoW gets done in libcore's
+  // make so that `toArray()`—which is how CoW gets done through libcore's
   // implementation— returns the backing array directly.
-  private boolean willCoW = false;
-
-  private final int initialCapacity;
+  private boolean willReturnSafeBackingArray = true;
 
   // ideally, this capacity is the same as the superclass'; but, because the
-  // superclass' isn't part of Android API 36.1's libcore public API, we
+  // superclass' isn't part of Android API 36.1's libcore's public API, we
   // hard-code it here.
   static final int DEFAULT_INITIAL_CAPACITY = 10;
 
-  private static final class SubList<Element>
-    extends AbstractList<Element>
-    implements RandomAccess {
-    private final Element[] backingArray;
-    private final int startIndex;
-    private final int endIndex;
+  final class Spliterator implements java.util.Spliterator<Element> {
+    private int currentIndex;
+    private int endIndex;
 
-    SubList(
-      final Element[] backingArray,
+    static final int DEFAULT = SIZED | SUBSIZED;
+    static final int IMMUTABLE_TREE_SET_LIKE =
+      DEFAULT | DISTINCT | IMMUTABLE | NONNULL | ORDERED | SORTED;
+
+    public Spliterator() {
+      this(/* startIndex = */ 0, /* endIndex = */ backingArray.length);
+    }
+
+    public Spliterator(final int startIndex, final int endIndex) {
+      this.currentIndex = startIndex;
+      this.endIndex = endIndex;
+    }
+
+    @Override
+    public int characteristics() {
+      return isImmutableTreeSetLike
+        ? IMMUTABLE_TREE_SET_LIKE
+        : DEFAULT;
+    }
+
+    @Override
+    public Comparator<? super Element> getComparator() {
+      return null;
+    }
+
+    @Override
+    public boolean tryAdvance(final Consumer<? super Element> action) {
+      if (currentIndex == endIndex)
+        return false;
+      if (action != null)
+        action.accept(backingArray[currentIndex++]);
+      return true;
+    }
+
+    @Override
+    public Spliterator trySplit() {
+      final long size = estimateSize();
+      if (size == 0)
+        return null;
+      final var result = new Spliterator(
+        /* startIndex = */
+        clamp(currentIndex + size / 2, Integer.MIN_VALUE, Integer.MAX_VALUE),
+        endIndex
+      );
+      endIndex = result.currentIndex;
+      return result;
+    }
+
+    @Override
+    public long estimateSize() {
+      return endIndex - currentIndex;
+    }
+  }
+
+  private final class Sublist extends AbstractList<Element>
+    implements RandomAccess {
+    private int startIndex;
+    private int endIndex;
+
+    Sublist(
       final int startIndex,
       final int endIndex
-    ) throws ArrayIndexOutOfBoundsException {
-      if (startIndex < 0)
-        throw new ArrayIndexOutOfBoundsException(startIndex);
-      if (startIndex > endIndex || endIndex > backingArray.length)
-        throw new ArrayIndexOutOfBoundsException(endIndex);
-      this.backingArray = backingArray;
+    ) throws IndexOutOfBoundsException {
+      checkFromToIndex(startIndex, endIndex, backingArray.length);
       this.startIndex = startIndex;
       this.endIndex = endIndex;
     }
 
     @Override
-    public Element get(int index) throws ArrayIndexOutOfBoundsException {
-      return backingArray[startIndex + index];
+    public boolean add(final Element element) {
+      OneTimeCopyOnWriteArrayList.this.add(endIndex, element);
+      return true;
+    }
+
+    @Override
+    public void add(final int index, final Element element) {
+      OneTimeCopyOnWriteArrayList.this.add(abs(index), element);
+    }
+
+    @Override
+    public boolean addAll(final Collection<? extends Element> c) {
+      return OneTimeCopyOnWriteArrayList.this.addAll(endIndex, c);
+    }
+
+    @Override
+    public boolean addAll(
+      final int index,
+      final Collection<? extends Element> c
+    ) {
+      return OneTimeCopyOnWriteArrayList.this.addAll(abs(index), c);
+    }
+
+    @Override
+    public void clear() {
+      removeRange(startIndex, endIndex);
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+      if (o instanceof List<?> castO) {
+        if (size() != castO.size())
+          return false;
+        for (int index = 0; index < size(); index++)
+          if (!Objects.equals(get(index), castO.get(index)))
+            return false;
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    public Element get(final int index) throws IndexOutOfBoundsException {
+      checkIndex(abs(index), size());
+      return backingArray[abs(index)];
+    }
+
+    @Override
+    public Iterator iterator() {
+      return new Iterator(startIndex, endIndex);
+    }
+
+    @Override
+    public boolean remove(final Object o) {
+      final boolean didRemove = remove(indexOf(o)) != null;
+      if (didRemove)
+        shrink();
+      return didRemove;
+    }
+
+    @Override
+    public Element remove(final int index) {
+      final Element removedElement =
+        OneTimeCopyOnWriteArrayList.this.remove(abs(index));
+      if (removedElement != null)
+        shrink();
+      return removedElement;
+    }
+
+    @Override
+    public boolean removeAll(final Collection<?> c) {
+      if (c.isEmpty())
+        return false;
+      boolean didRemoveAny = false;
+      for (int index = startIndex; index < endIndex; index++)
+        for (final Object element: c)
+          if (Objects.equals(backingArray[index], element)) {
+            remove(index);
+            didRemoveAny = true;
+          }
+      return didRemoveAny;
     }
 
     @Override
     public int size() {
       return endIndex - startIndex;
+    }
+
+    @Override
+    public Spliterator spliterator() {
+      return new Spliterator(startIndex, endIndex);
+    }
+
+    private int abs(final int index) {
+      return startIndex + index;
+    }
+
+    private void shrink() {
+      startIndex++;
+      endIndex--;
+    }
+  }
+
+  private class Iterator implements java.util.Iterator<Element> {
+    private int previousIndex;
+    private int endIndex;
+    private boolean isImmutable;
+
+    public Iterator() {
+      this(/* startIndex = */ 0, /* endIndex = */ backingArray.length);
+    }
+
+    public Iterator(final int startIndex, final int endIndex) {
+      checkFromToIndex(startIndex, endIndex, size());
+      this.previousIndex = startIndex - 1;
+      this.endIndex = endIndex;
+      this.isImmutable = true;
+    }
+
+    @Override
+    public Element next() throws NoSuchElementException {
+      final int currentIndex = getCurrentIndex();
+      final Element result;
+      isImmutable = false;
+      try { result = get(currentIndex); }
+      catch (final IndexOutOfBoundsException cause) {
+        throw new NoSuchElementException(cause);
+      }
+      previousIndex = currentIndex;
+      return result;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return getCurrentIndex() < endIndex;
+    }
+
+    @Override
+    public void remove() throws IllegalStateException, NoSuchElementException {
+      if (isImmutable)
+        throw new IllegalStateException(
+          "next() was never called; or removed twice after a next()"
+        );
+      try { OneTimeCopyOnWriteArrayList.this.remove(previousIndex); }
+      catch (final IndexOutOfBoundsException cause) {
+        throw new NoSuchElementException();
+      }
+      previousIndex--;
+      endIndex--;
+      isImmutable = true;
+    }
+
+    private int getCurrentIndex() {
+      return previousIndex + 1;
     }
   }
 
@@ -126,19 +330,15 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
    */
   public OneTimeCopyOnWriteArrayList(final int initialCapacity)
     throws IllegalArgumentException {
-    if (initialCapacity < 0)
-      throw new IllegalArgumentException(
-        "initialCapacity (" + initialCapacity + ") < 0"
-      );
+    super(initialCapacity);
     this.backingArray = null;
-    this.isImmutableOrderedSetLike = false;
-    this.initialCapacity = initialCapacity;
+    this.isImmutableTreeSetLike = false;
   }
 
   /**
-   * Instantiates a one-time CoW array list whose backing array contains
-   * incomparable, equal or unsorted elements. In such a list, elements will be
-   * indexed linearly (rather than through binary search).
+   * Instantiates a one-time CoW array list whose backing array might change or
+   * contain incomparable, equal or unsorted elements. In such a list, elements
+   * will be indexed linearly (rather than through binary search).
    *
    * @param backingArray Array to which the list acts as a backing array until
    *   the first modification on the list; it's also the array to be copied upon
@@ -146,15 +346,53 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
    * @see #OneTimeCopyOnWriteArrayList(Object[], boolean)
    */
   public OneTimeCopyOnWriteArrayList(final Element[] backingArray) {
-    this(backingArray, /* isImmutableOrderedSetLike = */ false);
+    this(backingArray, /* isImmutableTreeSetLike = */ false);
   }
 
   /**
-   * Instantiates a {@link OneTimeCopyOnWriteArrayList}.
+   * Instantiates a one-time CoW array list containing the elements of another
+   * iterable, in the iterable's defined order.
+   * <p>
+   * In case such iterable is a one-time CoW array list, its backing array will
+   * be shared with the instantiated list; therefore, until it's written to, the
+   * resulting list will also act as a view to that array. Otherwise, such
+   * iterable's elements are copied to the new list.
+   * <p>
+   * Binary-search-based indexing will be supported by the instantiated list if
+   * the given iterable is a one-time CoW array list, hasn't been written to and
+   * supports it too, for as long as the resulting list remains unchanged; or
+   * such iterable is a {@link TreeSet}. Both being false, indexing uses linear
+   * search, as a standard {@link ArrayList} does.
+   *
+   * @param base Iterable from which the one-time CoW array list will be
+   *   instantiated.
+   */
+  public OneTimeCopyOnWriteArrayList(
+    final Iterable<? extends Element> base
+  ) {
+    super(
+      /* initialCapacity = */
+      base instanceof Collection<? extends Element> castBase
+        ? castBase.size()
+        : DEFAULT_INITIAL_CAPACITY
+    );
+    this.backingArray =
+      base instanceof OneTimeCopyOnWriteArrayList<? extends Element> castBase
+        ? castBase.backingArray
+        : null;
+    this.isImmutableTreeSetLike =
+      base instanceof OneTimeCopyOnWriteArrayList<? extends Element> castBase
+        && castBase.isImmutableTreeSetLike;
+    if (!(base instanceof OneTimeCopyOnWriteArrayList<? extends Element>))
+      super.addAll(asCollection(base));
+  }
+
+  /**
+   * Instantiates a one-time CoW array list.
    *
    * @param backingArray Array to which the list acts as a view until the first
    *   write to the list; it's also the array to be copied upon such write.
-   * @param isImmutableOrderedSetLike Whether the backing array will remain
+   * @param isImmutableTreeSetLike Whether the backing array will remain
    *   unchanged throughout the list's lifetime and contain only comparable,
    *   distinct elements which are already sorted. This being {@code true}
    *   enables the list to index the backing array through binary search (as
@@ -166,14 +404,20 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
    *   these assumptions hold true, and violating them may result in a negative
    *   performance impact or undefined indexing.
    * @see Comparable
+   * @see TreeSet
    */
   public OneTimeCopyOnWriteArrayList(
     final Element[] backingArray,
-    final boolean isImmutableOrderedSetLike
+    final boolean isImmutableTreeSetLike
   ) {
-    this.backingArray = backingArray;
-    this.isImmutableOrderedSetLike = isImmutableOrderedSetLike;
-    this.initialCapacity = backingArray.length;
+    super(
+      /* initialCapacity = */ backingArray == null
+                                ? DEFAULT_INITIAL_CAPACITY
+                                : backingArray.length
+    );
+    this.backingArray =
+      backingArray == null || backingArray.length == 0 ? null : backingArray;
+    this.isImmutableTreeSetLike = isImmutableTreeSetLike;
   }
 
   @Override
@@ -212,13 +456,11 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
-  public Object clone() {
+  @SuppressWarnings("unchecked")
+  public ArrayList<Element> clone() {
     return backingArray == null
-      ? super.clone()
-      : new OneTimeCopyOnWriteArrayList<>(
-        /* backingArray = */ copyOf(backingArray, backingArray.length),
-        isImmutableOrderedSetLike
-      );
+      ? (ArrayList<Element>) super.clone()
+      : new OneTimeCopyOnWriteArrayList<>(backingArray, isImmutableTreeSetLike);
   }
 
   @Override
@@ -230,11 +472,11 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   public boolean equals(final Object o) {
     if (backingArray == null)
       return super.equals(o);
-    if (o instanceof List<?> typedO) {
-      if (backingArray.length != typedO.size())
+    if (o instanceof List<?> castO) {
+      if (backingArray.length != castO.size())
         return false;
       for (int index = 0; index < backingArray.length; index++)
-        if (!Objects.equals(backingArray[index], typedO.get(index)))
+        if (!Objects.equals(backingArray[index], castO.get(index)))
           return false;
       return true;
     }
@@ -275,7 +517,7 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   public int indexOf(final Object o) {
     if (backingArray == null)
       return super.indexOf(o);
-    if (isImmutableOrderedSetLike)
+    if (isImmutableTreeSetLike)
       return findIndexWithBinaryOrLinearSearchFromHead(o);
     return findIndexWithLinearSearchFromHead(o);
   }
@@ -286,10 +528,8 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
-  public Iterator<Element> iterator() {
-    return backingArray == null
-      ? super.iterator()
-      : Arrays.stream(backingArray).iterator();
+  public java.util.Iterator<Element> iterator() {
+    return backingArray == null ? super.iterator() : new Iterator();
   }
 
   @Override
@@ -297,7 +537,7 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   public int lastIndexOf(final Object o) {
     if (backingArray == null)
       return super.lastIndexOf(o);
-    if (isImmutableOrderedSetLike)
+    if (isImmutableTreeSetLike)
       try { return findIndexWithBinarySearch(o); }
       catch (final IllegalStateException exception) {}
     for (int index = backingArray.length - 1; index >= 0; index--)
@@ -321,6 +561,26 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
+  @SuppressWarnings("CatchMayIgnoreException")
+  public boolean remove(final Object o) {
+    if (isImmutableTreeSetLike) {
+      int index = -2;
+      try { index = findIndexWithBinarySearch(o); }
+      catch (final IllegalStateException exception) {}
+      if (index == -1)
+        return false;
+      else if (index >= 0) {
+        copyAndDereferenceBackingArray();
+        super.remove(index);
+        return true;
+      }
+    }
+    if (backingArray != null)
+      copyAndDereferenceBackingArray();
+    return super.remove(o);
+  }
+
+  @Override
   public Element remove(final int index) throws IndexOutOfBoundsException {
     if (backingArray != null) {
       checkIndex(index, backingArray.length);
@@ -330,27 +590,9 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
-  public boolean remove(final Object o) {
-    if (isImmutableOrderedSetLike
-      && findIndexWithBinaryOrLinearSearchFromHead(o) < 0)
-      return false;
-    if (backingArray != null)
-      copyAndDereferenceBackingArray();
-    return super.remove(o);
-  }
-
-  @Override
   public boolean removeAll(final Collection<?> c) {
-    if (isImmutableOrderedSetLike) {
-      boolean mayCoW = false;
-      for (final Object element: c)
-        if (findIndexWithBinaryOrLinearSearchFromHead(element) >= 0) {
-          mayCoW = true;
-          break;
-        }
-      if (!mayCoW)
-        return false;
-    }
+    if (c.isEmpty())
+      return false;
     if (backingArray != null)
       copyAndDereferenceBackingArray();
     return super.removeAll(c);
@@ -388,23 +630,13 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
-  protected void removeRange(final int fromIndex, final int toIndex)
-    throws IndexOutOfBoundsException {
-    if (backingArray != null) {
-      if (fromIndex < 0)
-        throw new ArrayIndexOutOfBoundsException(fromIndex);
-      if (toIndex > backingArray.length)
-        throw new ArrayIndexOutOfBoundsException(toIndex);
-      copyAndDereferenceBackingArray();
-    }
-    super.removeRange(fromIndex, toIndex);
-  }
-
-  @Override
   public Element set(final int index, final Element element)
     throws IndexOutOfBoundsException {
     if (backingArray != null) {
       checkIndex(index, backingArray.length);
+      final Element oldElement = backingArray[index];
+      if (Objects.equals(oldElement, element))
+        return oldElement;
       copyAndDereferenceBackingArray();
     }
     return super.set(index, element);
@@ -416,10 +648,8 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
-  public Spliterator<Element> spliterator() {
-    return backingArray == null
-      ? super.spliterator()
-      : Arrays.stream(backingArray).spliterator();
+  public java.util.Spliterator<Element> spliterator() {
+    return backingArray == null ? super.spliterator() : new Spliterator();
   }
 
   @Override
@@ -427,14 +657,14 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
     throws IndexOutOfBoundsException {
     return backingArray == null
       ? super.subList(fromIndex, toIndex)
-      : new SubList<>(backingArray, fromIndex, toIndex);
+      : new Sublist(fromIndex, toIndex);
   }
 
   @Override
   public Object[] toArray() {
     if (backingArray == null)
       return super.toArray();
-    if (willCoW)
+    if (willReturnSafeBackingArray)
       // we're (possibly) copying the array to this list, so we don't need to
       // follow the interface contract of always returning a "safe" array.
       // this is for our use, only.
@@ -443,48 +673,61 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"RedundantCast", "unchecked"})
   public <T> T[] toArray(final T[] a) throws NullPointerException {
     if (backingArray == null)
       return super.toArray(a);
     if (a == null)
       throw new NullPointerException("a");
-    final T[] result;
-    if (backingArray.length <= a.length) {
-      result =
-        (T[]) copyOf(backingArray, backingArray.length + 1, a.getClass());
-      if (backingArray.length < result.length)
-        result[backingArray.length] = null;
-    } else
-      result = (T[]) copyOf(backingArray, a.length, a.getClass());
-    return result;
+    if (backingArray.length > a.length)
+      return (T[]) copyOf(backingArray, backingArray.length, a.getClass());
+    System.arraycopy(
+      /* src = */     backingArray,
+      /* srcPos = */  0,
+      /* dest = */    (Object[]) a,
+      /* destPos = */ 0,
+      /* length = */  backingArray.length
+    );
+    if (backingArray.length < a.length)
+      a[backingArray.length] = null;
+    return a;
+  }
+
+  @Override
+  protected void removeRange(final int fromIndex, final int toIndex)
+    throws IndexOutOfBoundsException {
+    if (backingArray != null) {
+      checkFromToIndex(fromIndex, toIndex, backingArray.length);
+      copyAndDereferenceBackingArray();
+    }
+    super.removeRange(fromIndex, toIndex);
+  }
+
+  private static <Element> Collection<? extends Element> asCollection(
+    final Iterable<Element> self
+  ) {
+    if (self instanceof Collection<? extends Element> castSelf)
+      return castSelf;
+    final ArrayList<Element> backingList = new ArrayList<>();
+    for (final Element element: self)
+      backingList.add(element);
+    return unmodifiableList(backingList);
   }
 
   private void copyAndDereferenceBackingArray() {
-    // libcore's implementation of `ArrayList.addAll(Collection<? extends E>)`
-    // will resort to `toArray()`, which, normally, would copy the array. but,
-    // in this very specific case, copying it isn't what we want; we'll cheat.
-    willCoW = true;
+    // libcore's implementation of addAll() will resort to toArray(), which,
+    // normally, would copy the array. but, in this very specific case, copying
+    // it isn't what we want; we'll cheat.
+    willReturnSafeBackingArray = false;
     super.addAll(this);
-    willCoW = false;
-
-    // accessing the superclass' backing array and the superclass' size would
-    // prevent us from having to shrink or grow, but these are implementation
-    // details, and are so very finicky to meddle with; not worth the hassle
-    // whatsoever.
-    if (initialCapacity < DEFAULT_INITIAL_CAPACITY)
-      super.trimToSize();
-    else
-      super.ensureCapacity(initialCapacity);
-
+    willReturnSafeBackingArray = true;
     backingArray = null;
-    isImmutableOrderedSetLike = false;
+    isImmutableTreeSetLike = false;
   }
 
-  // `findIndexWithBinary*()` methods presuppose that
-  // `isImmutableOrderedSetLike` is `true`: their optimization only makes sense
-  // if the instantiator's promised us that an element of the backing array can
-  // be found via binary search.
+  // findIndexWithBinary*() methods presuppose that isImmutableTreeSetLike is
+  // true: their optimization only makes sense if the instantiator did promise
+  // to us that an element of the backing array can be found via binary search.
 
   @SuppressWarnings("CatchMayIgnoreException")
   private int findIndexWithBinaryOrLinearSearchFromHead(final Object key) {
@@ -503,7 +746,7 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
       // the backing array adheres to the contract—even though it doesn't, since
       // we've found an element that's incomparable (casting) or out of order
       // (illegal argument).
-      isImmutableOrderedSetLike = false;
+      isImmutableTreeSetLike = false;
       throw new IllegalStateException(cause);
     }
   }

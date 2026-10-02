@@ -47,6 +47,7 @@ dependencies {
   implementation(libs.guava)
   testImplementation(libs.android.espresso.intents)
   testImplementation(libs.android.test)
+  testImplementation(libs.apache.commons.collections)
   testImplementation(libs.assertJ)
   testImplementation(libs.jUnit4)
   testImplementation(libs.robolectric)

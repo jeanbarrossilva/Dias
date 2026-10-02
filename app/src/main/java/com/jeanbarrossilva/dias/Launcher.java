@@ -167,8 +167,8 @@ public final class Launcher implements Closeable {
   @NonNull
   public OneTimeCopyOnWriteArrayList<Handle> getHandles() {
     return new OneTimeCopyOnWriteArrayList<>(
-                                        handles,
-      /* isImmutableOrderedSetLike = */ true
+                                     handles,
+      /* isImmutableTreeSetLike = */ true
     );
   }
 
