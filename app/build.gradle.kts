@@ -8,14 +8,12 @@ android {
   testOptions.unitTests.isIncludeAndroidResources = true
 
   compileSdk {
-    version = release(36) {
-      minorApiLevel = 1
-    }
+    version = release(libs.versions.android.sdk.compile.get().toInt())
   }
 
   defaultConfig {
     applicationId = "com.jeanbarrossilva.dias"
-    minSdk = 36
+    minSdk = compileSdk
     versionCode = 1
     versionName = "1.0"
   }

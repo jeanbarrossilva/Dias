@@ -41,6 +41,7 @@ import static com.jeanbarrossilva.dias.core.Asserts.combine;
 import static com.jeanbarrossilva.dias.core.InstanceOfAssertFactories.COPY_ON_WRITE_ARRAY_LIST;
 import static com.jeanbarrossilva.dias.core.OneTimeCopyOnWriteArrayListAssert.assertThat;
 import static com.jeanbarrossilva.dias.core.Spliterators.toIterable;
+import static com.jeanbarrossilva.dias.core.test.OneTimeCopyOnWriteArrayLists.sampleImmutableTreeSetLikeBackingArray;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.fill;
 import static java.util.Arrays.stream;
@@ -685,6 +686,7 @@ public class OneTimeCopyOnWriteArrayListTests {
       });
     }
 
+    @SuppressWarnings("MagicConstant")
     private static <Element> void assertThatHasExactCharacteristics(
       final OneTimeCopyOnWriteArrayList<Element> actual,
       final int characteristics
@@ -801,21 +803,13 @@ public class OneTimeCopyOnWriteArrayListTests {
   private static Integer[] sampleNonImmutableTreeSetLikeArray(
     final int length
   ) {
-    final Integer[] result = sampleImmutableTreeSetLikeArray(length);
+    final Integer[] result = sampleImmutableTreeSetLikeBackingArray(length);
     shuffle(asList(result));
     return result;
   }
 
   private static Integer[] sampleImmutableTreeSetLikeArray() {
-    return sampleImmutableTreeSetLikeArray(DEFAULT_SAMPLE_COUNT);
-  }
-
-  private static Integer[] sampleImmutableTreeSetLikeArray(
-    final int length
-  ) {
-    final Integer[] result = new Integer[length];
-    ContiguousSet.closedOpen(0, length).toArray(result);
-    return result;
+    return sampleImmutableTreeSetLikeBackingArray(DEFAULT_SAMPLE_COUNT);
   }
 
   private static int random() {

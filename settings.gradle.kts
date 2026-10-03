@@ -1,5 +1,5 @@
 rootProject.name = "Dias"
-include(":app", ":core")
+include(":app", ":benchmarking", ":core", ":core-test")
 
 pluginManagement.repositories {
   gradlePluginPortal()
