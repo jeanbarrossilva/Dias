@@ -28,27 +28,23 @@ android {
   }
 
   compileOptions {
-    val version = libs
-      .versions
-      .java
-      .get()
-      .replaceFirst('.', '_')
-      .let { JavaVersion.valueOf("VERSION_$it") }
+    val version = libs.versions
+                      .java
+                      .get()
+                      .replaceFirst('.', '_')
+                      .let { JavaVersion.valueOf("VERSION_$it") }
     sourceCompatibility = version
     targetCompatibility = version
   }
 }
 
 dependencies {
-  implementation(libs.agrona)
+  implementation(project(":core"))
   implementation(libs.android.activity)
   implementation(libs.android.constraintLayout)
   implementation(libs.android.material)
-  implementation(libs.guava)
   testImplementation(libs.android.espresso.intents)
   testImplementation(libs.android.test)
-  testImplementation(libs.apache.commons.collections)
-  testImplementation(libs.assertJ)
   testImplementation(libs.jUnit4)
   testImplementation(libs.robolectric)
 }

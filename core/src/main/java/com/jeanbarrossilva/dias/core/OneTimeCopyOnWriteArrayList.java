@@ -99,10 +99,9 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
     }
 
     @Override
+    @SuppressWarnings("MagicConstant")
     public int characteristics() {
-      return isImmutableTreeSetLike
-        ? IMMUTABLE_TREE_SET_LIKE
-        : DEFAULT;
+      return isImmutableTreeSetLike ? IMMUTABLE_TREE_SET_LIKE : DEFAULT;
     }
 
     @Override

@@ -1,7 +1,5 @@
 package com.jeanbarrossilva.dias.core;
 
-import androidx.annotation.NonNull;
-
 import com.google.common.collect.ContiguousSet;
 
 import java.util.Collection;
@@ -16,10 +14,9 @@ public class Iterables {
    *
    * @param self Iterable whose indices will be returned.
    */
-  @NonNull
-  public static ContiguousSet<Integer> getIndices(
-    @NonNull final Iterable<?> self
-  ) {
+  public static ContiguousSet<Integer> getIndices(final Iterable<?> self) {
+    if (self == null)
+      return null;
     if (self instanceof Collection<?> s)
       return getIndices(s.size());
     final Iterator<?> iterator = self.iterator();
@@ -40,12 +37,13 @@ public class Iterables {
    * @param delimiter Separator for elements before the last one.
    * @param conjunction Separator for the second to last and last element.
    */
-  @NonNull
   public static String joinToString(
-    @NonNull final Iterable<?> self,
-    @NonNull final String delimiter,
-    @NonNull final String conjunction
+    final Iterable<?> self,
+    final String delimiter,
+    final String conjunction
   ) {
+    if (self == null)
+      return null;
     final Iterator<?> iterator = self.iterator();
     if (!iterator.hasNext())
       return "";
@@ -61,7 +59,6 @@ public class Iterables {
     return jointBuilder.toString();
   }
 
-  @NonNull
   private static ContiguousSet<Integer> getIndices(final int length) {
     return length == 0
       ? ContiguousSets.withoutIntegers
