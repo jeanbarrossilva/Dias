@@ -37,12 +37,14 @@ android {
 }
 
 dependencies {
-  implementation(project(":core"))
+  implementation(libs.agrona)
   implementation(libs.android.activity)
   implementation(libs.android.constraintLayout)
   implementation(libs.android.material)
+  implementation(libs.guava)
   testImplementation(libs.android.espresso.intents)
   testImplementation(libs.android.test)
+  testImplementation(libs.assertJ)
   testImplementation(libs.jUnit4)
   testImplementation(libs.robolectric)
 }

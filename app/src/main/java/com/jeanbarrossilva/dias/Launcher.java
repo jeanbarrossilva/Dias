@@ -11,8 +11,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.core.IntHashSets;
-import com.jeanbarrossilva.dias.core.OneTimeCopyOnWriteArrayList;
 
 import org.agrona.collections.IntHashSet;
 import org.jetbrains.annotations.NotNull;
