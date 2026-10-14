@@ -7,6 +7,13 @@ android {
   namespace = "com.jeanbarrossilva.dias"
   testOptions.unitTests.isIncludeAndroidResources = true
 
+  buildTypes {
+    release {
+      isMinifyEnabled = false
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+    }
+  }
+
   compileSdk {
     version = release(libs.versions.android.sdk.compile.get().toInt())
   }
@@ -18,13 +25,6 @@ android {
     versionName = "1.0"
   }
 
-  buildTypes {
-    release {
-      isMinifyEnabled = false
-      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-    }
-  }
-
   compileOptions {
     val version = libs.versions
                       .java
@@ -34,6 +34,8 @@ android {
     sourceCompatibility = version
     targetCompatibility = version
   }
+
+  testOptions.unitTests.isIncludeAndroidResources = true
 }
 
 dependencies {

@@ -18,7 +18,6 @@ import org.agrona.collections.IntHashSet;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -35,7 +34,6 @@ import static java.util.Objects.hash;
  * for every supported operation to be performed.
  */
 public final class Launcher implements Closeable {
-  @NonNull private final WeakReference<Context> contextRef;
   @NonNull private final Handle[] handles;
   @NonNull private final IntHashSet pinIndices;
   @Nullable private Consumer<@NotNull Pinning> onPinningListener;
@@ -160,7 +158,6 @@ public final class Launcher implements Closeable {
    */
   public Launcher(@NonNull final Context context) {
     this(
-      context,
       context.getPackageManager() instanceof PackageManager packageManager
         ? queryHandles(packageManager)
         : new Handle[0]
@@ -170,17 +167,13 @@ public final class Launcher implements Closeable {
   /**
    * Instantiates a launcher containing the given handles, all unpinned.
    *
-   * @param context Context through which the main activity of each application
-   *   associated to the found handles may be started.
    * @param handles Unique handles to all applications visible to the user,
    *  sorted by label.
    */
   @VisibleForTesting
   public Launcher(
-    @NonNull final Context context,
     @NonNull final Handle[] handles
   ) {
-    this.contextRef = new WeakReference<>(context);
     this.handles = handles;
     this.pinIndices = new IntHashSet();
     this.onPinningListener = null;
@@ -196,6 +189,31 @@ public final class Launcher implements Closeable {
                                      handles,
       /* isImmutableTreeSetLike = */ true
     );
+  }
+
+  /**
+   * Returns whether there are handles in this launcher.
+   * <p>
+   * This method returning {@code true} guarantees that a call to {@link
+   * #getHandles()} results in a list containing at least one handle; otherwise,
+   * that list will be empty.
+   */
+  public boolean hasHandles() {
+    return handles.length > 0;
+  }
+
+  /**
+   * Returns whether there's any <i>meaningful</i> pin in this launcher: this
+   * means that there must be at least one pinned handle; and not all handles
+   * are pinned.
+   * <p>
+   * This method returning {@code true} guarantees that a call to  {@link
+   * #findPins()} results in an array containing at least one pin, and that the
+   * array's contents differ from those of the list returned by {@link
+   * #getHandles()}.
+   */
+  public boolean hasPins() {
+    return !pinIndices.isEmpty() && handles.length != pinIndices.size();
   }
 
   /**
@@ -322,6 +340,10 @@ public final class Launcher implements Closeable {
    * Listens to each effectful call to {@link #pin(int)} and
    * {@link #unpin(int)}, notifying the given listener about the handles that
    * were newly pinned/unpinned.
+   * <p>
+   * The listener will be notified immediately after a call to this method in
+   * case it's different from the previous listener and this launcher has pins
+   * (according to the semantics of {@link #hasPins()}).
    *
    * @param listener Listener to be notified of changes regarding pinning
    *   handles.
@@ -329,12 +351,17 @@ public final class Launcher implements Closeable {
   public void setOnPinningListener(
     @NonNull final Consumer<@NotNull Pinning> listener
   ) {
+    if (Objects.equals(onPinningListener, listener))
+      return;
     onPinningListener = listener;
+    if (!hasPins())
+      return;
+    final var pinning = new Pinning(pinIndices, true);
+    listener.accept(pinning);
   }
 
   @Override
   public void close() {
-    contextRef.clear();
     onPinningListener = null;
   }
 
