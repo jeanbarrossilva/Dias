@@ -81,7 +81,6 @@ public class HandleListView extends RecyclerView {
       final Launcher.Handle[] pins = launcher.findPins();
       submitList(asList(pins));
       isExpanded = false;
-      System.out.println("collapsed");
     }
 
     private void expand() {
@@ -91,7 +90,6 @@ public class HandleListView extends RecyclerView {
       }
       submitList(launcher.getHandles());
       isExpanded = true;
-      System.out.println("expanded");
     }
   }
 
