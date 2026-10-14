@@ -1,14 +1,14 @@
 package com.jeanbarrossilva.dias;
 
 import org.assertj.core.api.AbstractAssert;
-import org.assertj.core.api.Assertions;
+import org.assertj.core.api.AbstractBooleanAssert;
 import org.assertj.core.api.ListAssert;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
-
+import static com.jeanbarrossilva.dias.core.Asserts.assertThatCall;
+import static com.jeanbarrossilva.dias.core.InstanceOfAssertFactories.listFromArray;
+import static org.assertj.core.api.InstanceOfAssertFactories.array;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
-import static org.assertj.core.api.InstanceOfAssertFactories.list;
 
 public final class LauncherAssert
   extends AbstractAssert<LauncherAssert, Launcher> {
@@ -17,18 +17,34 @@ public final class LauncherAssert
   }
 
   @NotNull
+  public LauncherAssert hasHandles() {
+    assertThatReturnValueOfHasHandles().isTrue();
+    return this;
+  }
+
+  @NotNull
+  public LauncherAssert hasPins() {
+    assertThatReturnValueOfHasPins().isTrue();
+    return this;
+  }
+
+  @NotNull
+  public LauncherAssert doesNotHavePins() {
+    assertThatReturnValueOfHasPins().isFalse();
+    return this;
+  }
+
+  @NotNull
   public ListAssert<Launcher.Handle> pins() {
-    return describedAs("pins").extracting(
-      launcher -> Arrays.asList(launcher.findPins()),
-      Assertions.as(list(Launcher.Handle.class))
-    );
+    return assertThatCall(actual(), "findPins", array(Launcher.Handle[].class))
+      .asInstanceOf(listFromArray(Launcher.Handle[].class));
   }
 
   @NotNull
   @SuppressWarnings("resource")
   public LauncherAssert hasPinned(final int index) {
     describedAs("is " + actual().getHandles().get(index) + " pinned")
-      .extracting(launcher -> launcher.isPinned(index), Assertions.as(BOOLEAN))
+      .extracting(launcher -> launcher.isPinned(index), BOOLEAN)
       .isEqualTo(true);
     return this;
   }
@@ -37,7 +53,7 @@ public final class LauncherAssert
   @SuppressWarnings("resource")
   public LauncherAssert hasUnpinned(final int index) {
     describedAs("is " + actual().getHandles().get(index) + " unpinned")
-      .extracting(launcher -> launcher.isPinned(index), Assertions.as(BOOLEAN))
+      .extracting(launcher -> launcher.isPinned(index), BOOLEAN)
       .isEqualTo(false);
     return this;
   }
@@ -45,5 +61,13 @@ public final class LauncherAssert
   @NotNull
   public static LauncherAssert assertThat(@NotNull final Launcher launcher) {
     return new LauncherAssert(launcher);
+  }
+
+  private AbstractBooleanAssert<?> assertThatReturnValueOfHasHandles() {
+    return assertThatCall(actual(), "hasHandles", BOOLEAN);
+  }
+
+  private AbstractBooleanAssert<?> assertThatReturnValueOfHasPins() {
+    return assertThatCall(actual(), "hasPins", BOOLEAN);
   }
 }
