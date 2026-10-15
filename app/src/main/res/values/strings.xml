@@ -2,5 +2,6 @@
   <string name="app_name">Dias</string>
 
   <!-- Home -->
-  <string name="home_all_apps">All</string>
+  <string name="home_handle_list_expand">Show all apps</string>
+  <string name="home_handle_list_collapse">Show only pinned apps</string>
 </resources>
