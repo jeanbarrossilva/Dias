@@ -1,7 +1,5 @@
 package com.jeanbarrossilva.dias;
 
-import androidx.annotation.NonNull;
-
 import com.jeanbarrossilva.dias.core.IntHashSets;
 
 import org.agrona.collections.IntHashSet;
@@ -25,7 +23,7 @@ public class LauncherTests {
   public static final class ClosingTests {
     @Test
     public void deregistersOnPinningListener() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final var listenerNotificationCount = new AtomicInteger();
       launcher.setOnPinningListener(
         pinning -> listenerNotificationCount.getAndIncrement()
@@ -42,7 +40,7 @@ public class LauncherTests {
   public static final class PinningTests {
     @Test
     public void handlesAreUnpinnedByDefault() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final LauncherAssert launcherAssert = assertThat(launcher);
       for (final int index: getIndices(launcher.getHandles()))
         launcherAssert.hasUnpinned(index);
@@ -51,7 +49,7 @@ public class LauncherTests {
 
     @Test
     public void pinsOne() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       launcher.pin(0);
       assertThat(launcher)
         .hasHandles()
@@ -64,7 +62,7 @@ public class LauncherTests {
 
     @Test
     public void pinsOneIdempotently() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       launcher.pin(0);
       launcher.pin(0);
       assertThat(launcher)
@@ -78,7 +76,7 @@ public class LauncherTests {
 
     @Test
     public void pinsVarious() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final IntHashSet pinIndices = IntHashSets.of(0, 1);
       launcher.pin(pinIndices);
       final List<Launcher.Handle> handles = launcher.getHandles();
@@ -94,7 +92,7 @@ public class LauncherTests {
 
     @Test
     public void pinsVariousIdempotently() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final IntHashSet pinIndices = IntHashSets.of(0, 1);
       launcher.pin(pinIndices);
       launcher.pin(pinIndices);
@@ -111,7 +109,7 @@ public class LauncherTests {
 
     @Test
     public void unpinsOne() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final IntHashSet pinningIndices = IntHashSets.of(0, 1, 2, 3);
       launcher.pin(pinningIndices);
       launcher.unpin(0);
@@ -130,7 +128,7 @@ public class LauncherTests {
 
     @Test
     public void unpinsVarious() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final IntHashSet pinningIndices = IntHashSets.of(0, 1, 2, 3);
       launcher.pin(pinningIndices);
       pinningIndices.remove(2);
@@ -151,7 +149,7 @@ public class LauncherTests {
 
     @Test
     public void listensToPinOfOne() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       launcher.setOnPinningListener(pinningRef::set);
       launcher.pin(0);
@@ -162,7 +160,7 @@ public class LauncherTests {
 
     @Test
     public void listensToPinOfSome() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final IntHashSet pinIndices = IntHashSets.of(0, 1);
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       launcher.setOnPinningListener(pinningRef::set);
@@ -174,7 +172,7 @@ public class LauncherTests {
 
     @Test
     public void listensToUnpinOfOne() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       launcher.pin(0);
       launcher.setOnPinningListener(pinningRef::set);
@@ -186,7 +184,7 @@ public class LauncherTests {
 
     @Test
     public void listensToUnpinOfSome() {
-      final var launcher = sampleLauncher();
+      final var launcher = Launcher.sample();
       final IntHashSet pinningIndices = IntHashSets.of(0, 1);
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       launcher.pin(pinningIndices);
@@ -196,10 +194,5 @@ public class LauncherTests {
         .isEqualTo(new Launcher.Pinning(pinningIndices, false));
       launcher.close();
     }
-  }
-
-  @NonNull
-  private static Launcher sampleLauncher() {
-    return new Launcher(Handles.SAMPLES);
   }
 }

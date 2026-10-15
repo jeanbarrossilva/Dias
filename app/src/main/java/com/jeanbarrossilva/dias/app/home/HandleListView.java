@@ -1,6 +1,7 @@
 package com.jeanbarrossilva.dias.app.home;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.util.AttributeSet;
 import android.view.ViewGroup;
 
@@ -105,14 +106,14 @@ public class HandleListView extends RecyclerView {
   }
 
   public HandleListView(@NonNull final Context context) {
-    this(context, null);
+    super(context);
   }
 
   public HandleListView(
     @NonNull final Context context,
     @Nullable final AttributeSet attrs
   ) {
-    this(context, attrs, 0);
+    this(context, attrs, /* defStyleRes = */ Resources.ID_NULL);
   }
 
   public HandleListView(
@@ -121,23 +122,25 @@ public class HandleListView extends RecyclerView {
     @StyleRes final int defStyleRes
   ) {
     super(context, attrs, defStyleRes);
-  }
-
-  public boolean isExpanded() {
-    return isExpandedOrNull().orElse(false);
+    if (isInEditMode())
+      setLauncher(Launcher.sample());
   }
 
   public void setLauncher(@Nullable final Launcher launcher) {
     if (launcher == null) {
       setAdapter(null);
       setLayoutManager(null);
-    } else {
-      setAdapter(new Adapter(launcher));
-      final Context context = getContext();
-      if (context == null || getLayoutManager() instanceof LinearLayoutManager)
-        return;
-      setLayoutManager(new LinearLayoutManager(context));
+      return;
     }
+    setAdapter(new Adapter(launcher));
+    final Context context = getContext();
+    if (context == null || getLayoutManager() instanceof LinearLayoutManager)
+      return;
+    setLayoutManager(new LinearLayoutManager(context));
+  }
+
+  public boolean isExpanded() {
+    return isExpandedOrNull().orElse(false);
   }
 
   @SuppressWarnings("DataFlowIssue")

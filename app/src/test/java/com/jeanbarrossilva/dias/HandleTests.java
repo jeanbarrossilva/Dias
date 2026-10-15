@@ -11,8 +11,8 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-import static com.jeanbarrossilva.dias.Handles.SAMPLE;
 import static com.jeanbarrossilva.dias.HandleAssert.assertThat;
+import static com.jeanbarrossilva.dias.Launcher.Handle.SAMPLE;
 
 @RunWith(RobolectricTestRunner.class)
 public class HandleTests {

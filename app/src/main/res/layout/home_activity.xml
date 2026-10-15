@@ -15,7 +15,7 @@
     app:layout_constraintTop_toTopOf="parent" />
 
   <com.google.android.material.button.MaterialButton
-    android:backgroundTint="@android:color/system_surface_dark"
+    android:backgroundTint="?colorPrimaryContainer"
     android:fontFamily="@font/space_grotesk"
     android:id="@+id/all_apps_button"
     android:layout_height="56dp"
@@ -25,7 +25,7 @@
     android:paddingVertical="14dp"
     android:visibility="gone"
     app:iconPadding="0dp"
-    app:iconTint="@android:color/system_on_surface_dark"
+    app:iconTint="?colorOnPrimaryContainer"
     android:insetBottom="0dp"
     android:insetLeft="0dp"
     android:insetRight="0dp"
@@ -33,6 +33,7 @@
     app:cornerRadius="8dp"
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintEnd_toEndOf="parent"
+    tools:contentDescription="@string/home_handle_list_expand"
     tools:icon="@drawable/ic_expand_content"
     tools:visibility="visible" />
 </androidx.constraintlayout.widget.ConstraintLayout>

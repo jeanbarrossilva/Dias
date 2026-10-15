@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.google.common.collect.ContiguousSet;
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.core.IntHashSets;
 
@@ -49,6 +50,21 @@ public final class Launcher implements Closeable {
     /** Localized text considered to be the name of the application. */
     @NonNull public final String label;
 
+    private static final Launcher.Handle[] SAMPLES =
+      ContiguousSet.closedOpen(0, 13)
+        .stream()
+        .map(
+          index -> new Launcher.Handle(
+            /* packageName = */  "com.jeanbarrossilva.dias",
+            /* activityName = */ "com.jeanbarrossilva.dias.Activity"
+            + (index + 1),
+            /* label = */        "App " + (index + 1)
+          )
+        )
+        .toArray(Launcher.Handle[]::new);
+
+    @VisibleForTesting static final Launcher.Handle SAMPLE = SAMPLES[0];
+
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public Handle(
       @NonNull final String packageName,
@@ -71,6 +87,12 @@ public final class Launcher implements Closeable {
       return hash(name, label);
     }
 
+    @NonNull
+    @Override
+    public String toString() {
+      return label + " (" + name.flattenToShortString() + ')';
+    }
+
     @Override
     public int compareTo(Handle o) {
       return label.compareTo(o.label);
@@ -80,23 +102,14 @@ public final class Launcher implements Closeable {
      * Starts the activity associated to this handle.
      *
      * @param context Context from which to start the activity.
-     * @see #close()
-     * @throws NullPointerException If this launcher has been closed, the context
-     *   has been garbage-collected, or is null.
+     * @throws ActivityNotFoundException If this handle is associated to an
+     *   activity nonexistent in the given context.
      */
     public void launch(@NonNull final Context context)
       throws ActivityNotFoundException {
       final Intent intent = new Intent()
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         .setComponent(name);
-
-      // despite the fact that this call may throw, launchers instantiated by the
-      // public constructor will have their handles all "pointing" to valid,
-      // existent activities, since they were queried from the OS itself.
-      //
-      // the only scenario in which this *will* throw is when this instance is a
-      // result of calling `Launcher(Context, Handle[])` with arbitrary handles,
-      // e.g., for testing purposes.
       context.startActivity(intent);
     }
 
@@ -363,6 +376,20 @@ public final class Launcher implements Closeable {
   @Override
   public void close() {
     onPinningListener = null;
+  }
+
+  /**
+   * Instantiates a launcher for demonstration purposes.
+   * <p>
+   * <b>NOTE</b>: Trying to launch one of the returned launcher's handles will
+   * likely throw a {@link ActivityNotFoundException}: they aren't intended to
+   * be handles to real applications.
+   *
+   * @see Handle#launch(Context)
+   */
+  @NonNull
+  public static Launcher sample() {
+    return new Launcher(Handle.SAMPLES);
   }
 
   private boolean isBoundedIndex(final int index) {
