@@ -382,7 +382,7 @@ public final class Launcher implements Closeable {
    * Instantiates a launcher for demonstration purposes.
    * <p>
    * <b>NOTE</b>: Trying to launch one of the returned launcher's handles will
-   * likely throw a {@link ActivityNotFoundException}: they aren't intended to
+   * likely throw an {@link ActivityNotFoundException}: they aren't intended to
    * be handles to real applications.
    *
    * @see Handle#launch(Context)
@@ -427,12 +427,10 @@ public final class Launcher implements Closeable {
     @NonNull final PackageManager packageManager
   ) {
     return packageManager
-      .queryIntentActivities(queryIntent, PackageManager.MATCH_DEFAULT_ONLY)
+      .queryIntentActivities(queryIntent, PackageManager.MATCH_ALL)
       .stream()
       .filter(Objects::nonNull)
-      .map(
-        resolveInfo -> Handle.parse(packageManager, resolveInfo.activityInfo)
-      )
+      .map(r -> Handle.parse(packageManager, r.activityInfo))
       .filter(Objects::nonNull)
       .sorted()
       .toArray(Handle[]::new);
