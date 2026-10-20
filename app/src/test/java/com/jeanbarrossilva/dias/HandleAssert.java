@@ -15,7 +15,7 @@ public class HandleAssert extends AbstractObjectAssert<HandleAssert, Launcher.Ha
 
   @NonNull
   public HandleAssert launched() throws AssertionError {
-    intended(hasComponent(actual().id));
+    intended(hasComponent(actual().name()));
     assertNoUnverifiedIntents();
     return this;
   }

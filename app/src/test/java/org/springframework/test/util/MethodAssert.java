@@ -84,28 +84,28 @@ public class MethodAssert<Instance>
 	 * @throws AssertionError If the method isn't found, is private or returns a
 	 *   value that isn't a future that holds an {@link Actual}.
 	 */
-	@SuppressWarnings("unchecked")
-	public <Actual,
-		Result extends AbstractAssert<?, ?>> Result invokeAsync(
+	public <Actual> ObjectAssert<Object> invokeAsync(
 		final Instance instance,
 		final Object... args
 	) throws AssertionError {
-		final ExecutorService executor = newCachedThreadPool();
-		final Result result;
+		final ExecutorService threadPool = newCachedThreadPool();
+		final ObjectAssert<Object> result;
+		final String formattedCall = formatCall(instance);
 		try {
-			result = (Result) Assertions
-				.assertThat(executor.submit(() -> invoke(instance, args)))
-				.describedAs("future of " + formatCall(instance))
-				.succeedsWithin(1, MINUTES);
+			result = Assertions
+				.assertThat(threadPool.submit(() -> invoke(instance, args)))
+				.describedAs("future of " + formattedCall)
+				.succeedsWithin(1, MINUTES)
+				.actual();
 		} catch (final RejectedExecutionException cause) {
 			throw new AssertionError(
 				/* message = */ "submission of future returned by "
-													+ formatCall(instance)
+													+ formattedCall
 													+ " threw an exception",
 												cause
 			);
 		} finally {
-			executor.close();
+			threadPool.close();
 		}
 		return result;
 	}
@@ -151,11 +151,17 @@ public class MethodAssert<Instance>
 	}
 
 	private String formatCall(final Object instance) {
-		return formatCall(
+		return instance == null
+			? formatCall(
+				actual().getDeclaringClass().getSimpleName(),
+				actual().getName(),
+				actual().getParameterTypes()
+			)
+			: formatCall(
 			/* prefix = */ instance.toString(),
 										 actual().getName(),
 										 actual().getParameterTypes()
-		);
+			);
 	}
 
 	private static String formatCall(

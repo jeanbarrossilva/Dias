@@ -11,12 +11,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
+import androidx.collection.MutableObjectIntMap;
 
 import com.google.common.collect.ContiguousSet;
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
-import com.jeanbarrossilva.dias.core.Comparators;
 import com.jeanbarrossilva.dias.core.IntHashSets;
-import com.jeanbarrossilva.dias.persistence.Pin;
 import com.jeanbarrossilva.dias.persistence.PinDatabase;
 
 import org.agrona.collections.IntHashSet;
@@ -24,7 +23,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -32,8 +30,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static androidx.room.Room.inMemoryDatabaseBuilder;
-import static com.jeanbarrossilva.dias.core.Arrays.binarySearch;
-import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNull;
@@ -46,6 +42,14 @@ import static java.util.Objects.requireNonNull;
 public final class Launcher implements Closeable {
   private final PinDatabase pinDatabase;
   private final Handle[] handles;
+
+  // this *might* be problematic. if an app gets installed after this launcher
+  // has been instantiated, these indices may be of different handles or out of
+  // bounds, and that new app won't have been indexed; conversely, removing an
+  // app won't cause this to map to be mutated, because we're not listening to
+  // those installs/uninstalls.
+  private final MutableObjectIntMap<String> indexing;
+
   private Consumer<Pinning> onPinningListener;
 
   private static final Intent queryIntent =
@@ -116,6 +120,11 @@ public final class Launcher implements Closeable {
       return label.compareTo(o.label);
     }
 
+    @VisibleForTesting
+    ComponentName name() {
+      return ComponentName.unflattenFromString(id);
+    }
+
     /**
      * Starts the activity associated to this handle.
      *
@@ -148,24 +157,29 @@ public final class Launcher implements Closeable {
   }
 
   /**
-   * Exception thrown whenever a handle that doesn't belong to a launcher is
+   * Exception thrown whenever handles that don't belong to a launcher are
    * requested to be pinned or unpinned in that same launcher.
    *
-   * @see #pin(String)
-   * @see #unpin(String)
+   * @see #pin(Set)
+   * @see #unpin(Set)
    */
   public static final class HandleNotFoundException
     extends NoSuchElementException {
     /**
-     * ID of the handle that hasn't been found.
+     * IDs of the handles that weren't found.
      *
      * @see Handle#id
      */
-    final String id;
+    final Set<String> ids;
 
     HandleNotFoundException(final String id) {
       super("no handle identified as " + id + " found");
-      this.id = id;
+      this.ids = Set.of(id);
+    }
+
+    HandleNotFoundException(final Set<String> ids) {
+      super("one or more handles weren't found: " + ids);
+      this.ids = ids;
     }
   }
 
@@ -196,6 +210,11 @@ public final class Launcher implements Closeable {
     @Override
     public int hashCode() {
       return hash(indices, arePinned);
+    }
+
+    @Override
+    public String toString() {
+      return "Pinning(indices=" + indices + ", arePinned=" + arePinned + ')';
     }
   }
 
@@ -230,7 +249,10 @@ public final class Launcher implements Closeable {
   public Launcher(final PinDatabase pinDatabase, final Handle[] handles)
     throws NullPointerException {
     this.pinDatabase = requireNonNull(pinDatabase);
-    this.handles = handles == null ? new Handle[0] : handles;
+    this.handles = handles;
+    this.indexing = new MutableObjectIntMap<>(handles.length);
+    for (int index = 0; index < handles.length; index++)
+      this.indexing.put(handles[index].id, index);
     this.onPinningListener = null;
   }
 
@@ -268,15 +290,8 @@ public final class Launcher implements Closeable {
    * #getHandles()}.
    */
   public boolean hasPins() {
-    final PinDatabase.Dao dao = pinDatabase.getDao();
-    final int pinCount = dao.count();
-    if (pinCount == 0 || pinCount == handles.length)
-      return false;
-    final Pin[] pins = dao.selectAll();
-    for (int index = 0; index < pinCount; index++)
-      if (!Objects.equals(pins[index].id, handles[index].id))
-        return true;
-    return false;
+    final int pinCount = pinDatabase.getDao().count();
+    return pinCount > 0 && pinCount < handles.length;
   }
 
   /**
@@ -312,10 +327,8 @@ public final class Launcher implements Closeable {
    *   launcher.
    */
   public void pin(final String id) throws HandleNotFoundException {
-    final Handle handle = get(id);
-    if (handle == null || isPinned(id))
-      return;
-    final boolean didPin = pinDatabase.getDao().insert(handle.id);
+    assertContainsAll(Set.of(id));
+    final boolean didPin = pinDatabase.getDao().insert(id);
     if (onPinningListener == null || !didPin)
       return;
     final var pinning = new Pinning(IntHashSets.of(getIndex(id)), true);
@@ -327,13 +340,11 @@ public final class Launcher implements Closeable {
    *
    * @param ids IDs of the handles to pin.
    * @see Handle#id
-   * @throws HandleNotFoundException If the handle doesn't belong to this
+   * @throws HandleNotFoundException If a handle doesn't belong to this
    *   launcher.
    */
   public void pin(Set<String> ids) throws HandleNotFoundException {
-    final Handle[] handles = getHandles(ids);
-    if (handles == null || handles.length == 0)
-      return;
+    assertContainsAll(ids);
     final boolean didPin =
       pinDatabase.getDao().insert(ids.toArray(new String[0])) > 0;
     if (onPinningListener == null || !didPin)
@@ -351,10 +362,9 @@ public final class Launcher implements Closeable {
    *   launcher.
    */
   public void unpin(final String id) throws HandleNotFoundException {
-    final Handle handle = get(id);
-    if (handle == null)
-      throw new HandleNotFoundException(id);
-    if (onPinningListener == null || !isPinned(id))
+    assertContainsAll(Set.of(id));
+    final boolean didUnpin = pinDatabase.getDao().delete(id);
+    if (onPinningListener == null || !didUnpin)
       return;
     final int index = getIndex(id);
     final var pinning = new Pinning(IntHashSets.of(index), false);
@@ -377,16 +387,16 @@ public final class Launcher implements Closeable {
    *
    * @param ids IDs of the handles to unpin.
    * @see #pin(String)
+   * @throws HandleNotFoundException If a handle doesn't belong to this
+   *   launcher.
    */
   public void unpin(final Set<String> ids) throws HandleNotFoundException {
-    final Handle[] handles = getHandles(ids);
-    if (handles == null || handles.length == 0)
-      return;
+    assertContainsAll(ids);
     final String[] idsAsArray = ids.toArray(new String[0]);
     final boolean didUnpin = pinDatabase.getDao().delete(idsAsArray) > 0;
     if (onPinningListener == null || !didUnpin)
       return;
-    final var pinning = new Pinning(getIndices(ids), true);
+    final var pinning = new Pinning(getIndices(ids), false);
     onPinningListener.accept(pinning);
   }
 
@@ -472,20 +482,17 @@ public final class Launcher implements Closeable {
    */
   @VisibleForTesting
   Handle get(final String id) throws HandleNotFoundException {
-    return handles[getIndex(id)];
+    return handles[indexing.get(id)];
   }
 
-  private Handle[] getHandles(final Set<String> ids)
+  private void assertContainsAll(final Set<String> ids)
     throws HandleNotFoundException {
-    final var result = new Handle[ids.size()];
-    final Iterator<String> idIterator = ids.iterator();
-    for (int index = 0; idIterator.hasNext(); index++) {
-      final String id = idIterator.next();
-      if (id == null)
-        continue;
-      result[index] = get(id);
-    }
-    return stream(result).filter(Objects::nonNull).toArray(Handle[]::new);
+    if (size() < ids.size())
+      throw new HandleNotFoundException(ids);
+
+    // we don't use the indices;
+    // we're only delegating the rest of the assertion to this other method.
+    getIndices(ids);
   }
 
   private IntHashSet getIndices(final Set<String> ids)
@@ -497,15 +504,15 @@ public final class Launcher implements Closeable {
   }
 
   private int getIndex(final String id) throws HandleNotFoundException {
-    final int index = binarySearch(
-      handles,
-      id,
-      Comparators.comparingByIndex(asList(handles)),
-      handle -> handle.id
-    );
-    if (index < 0)
+    try {
+      return indexing.get(id);
+    } catch (final NoSuchElementException exception) {
       throw new HandleNotFoundException(id);
-    return index;
+    }
+  }
+
+  private int size() {
+    return handles.length;
   }
 
   private static Handle[] queryHandles(final PackageManager packageManager) {

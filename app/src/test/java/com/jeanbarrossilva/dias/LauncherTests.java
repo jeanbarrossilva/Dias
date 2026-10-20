@@ -154,7 +154,7 @@ public class LauncherTests {
       final HashSet<String> pinningIDsAsSet = new HashSet<>(pinningIDs);
       executor.submit(() -> {
         launcher.pin(pinningIDsAsSet);
-        launcher.unpin(pinningIDsAsSet);
+        launcher.unpin(pinningIDs.getFirst());
       });
       executor.close();
       final List<Launcher.Handle> handles = launcher.getHandles();
@@ -184,8 +184,8 @@ public class LauncherTests {
       executor.submit(() -> launcher.pin(new HashSet<>(pinningHandleIDs)));
       executor.close();
       final String[] immortalPinIDs = new String[]{
-        pinningHandleIDs.remove(2),
-        pinningHandleIDs.remove(3)
+        pinningHandleIDs.remove(1),
+        pinningHandleIDs.remove(2)
       };
       launcher.unpin(new HashSet<>(pinningHandleIDs));
       assertThat(launcher)
@@ -216,7 +216,7 @@ public class LauncherTests {
       executor.submit(() -> launcher.pin(pin.id));
       executor.close();
       MethodAssert.assertThat(AtomicReference.class, "get")
-                  .invoke(pinningRef, as(type(Launcher.Pinning.class)))
+                  .invoke(pinningRef)
                   .isEqualTo(new Launcher.Pinning(IntHashSets.of(0), true));
       launcher.clear();
       launcher.close();
@@ -240,7 +240,7 @@ public class LauncherTests {
       executor.submit(() -> launcher.pin(pinIDs));
       executor.close();
       MethodAssert.assertThat(AtomicReference.class, "get")
-                  .invoke(pinningRef, as(type(Launcher.Pinning.class)))
+                  .invoke(pinningRef)
                   .isEqualTo(new Launcher.Pinning(IntHashSets.of(0, 1), true));
       launcher.clear();
       launcher.close();
@@ -256,12 +256,14 @@ public class LauncherTests {
       final Launcher.Handle pin = launcher.getHandles().getFirst();
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       executor.submit(() -> launcher.pin(pin.id));
-      launcher.setOnPinningListener(pinningRef::set);
+      launcher.setOnPinningListener(pinning -> {
+        System.out.println(pinning);
+        pinningRef.set(pinning);
+      });
       executor.submit(() -> launcher.unpin(pin.id));
       executor.close();
-      launcher.unpin(pin.id);
       MethodAssert.assertThat(AtomicReference.class, "get")
-                  .invoke(pinningRef, as(type(Launcher.Pinning.class)))
+                  .invoke(pinningRef)
                   .isEqualTo(new Launcher.Pinning(IntHashSets.of(0), false));
       launcher.clear();
       launcher.close();
@@ -286,7 +288,7 @@ public class LauncherTests {
       executor.submit(() -> launcher.unpin(pinningIDs));
       executor.close();
       MethodAssert.assertThat(AtomicReference.class, "get")
-                  .invoke(pinningRef, as(type(Launcher.Pinning.class)))
+                  .invoke(pinningRef)
                   .isEqualTo(new Launcher.Pinning(IntHashSets.of(0, 1), false));
       launcher.clear();
       launcher.close();

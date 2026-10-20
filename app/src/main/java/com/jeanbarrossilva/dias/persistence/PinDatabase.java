@@ -14,11 +14,19 @@ public abstract class PinDatabase extends RoomDatabase {
   public abstract static class Dao {
     Dao() {}
 
-    @Query("SELECT * FROM pins")
+    @Query("SELECT * FROM pins ORDER BY id")
     public abstract Pin[] selectAll();
 
     @Query("SELECT COUNT(*) FROM pins")
     public abstract int count();
+
+    @Query("""
+      SELECT * FROM pins
+      WHERE NOT EXISTS (
+        SELECT 1 FROM pins
+        WHERE id IN (:ids)
+      )""")
+    public abstract String[] diff(final String... ids);
 
     @Query("""
       SELECT CASE
@@ -36,6 +44,10 @@ public abstract class PinDatabase extends RoomDatabase {
     public final int insert(final String... ids) {
       final var pins = stream(ids).map(Pin::new).toArray(Pin[]::new);
       return insert(pins).length;
+    }
+
+    public final boolean delete(final String id) {
+      return delete(new String[]{id}) == 1;
     }
 
     @Query("DELETE FROM pins WHERE id IN (:ids)")
