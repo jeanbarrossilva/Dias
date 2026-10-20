@@ -4,8 +4,10 @@ import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractBooleanAssert;
 import org.assertj.core.api.ListAssert;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.test.util.MethodAssert;
 
-import static com.jeanbarrossilva.dias.core.Asserts.assertThatCall;
+import java.lang.reflect.InvocationTargetException;
+
 import static com.jeanbarrossilva.dias.core.InstanceOfAssertFactories.listFromArray;
 import static org.assertj.core.api.InstanceOfAssertFactories.array;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
@@ -18,43 +20,42 @@ public final class LauncherAssert
 
   @NotNull
   public LauncherAssert hasHandles() {
-    assertThatReturnValueOfHasHandles().isTrue();
+    assertThatHasHandles().isTrue();
     return this;
   }
 
   @NotNull
   public LauncherAssert hasPins() {
-    assertThatReturnValueOfHasPins().isTrue();
+    assertThatHasPins().isTrue();
     return this;
   }
 
   @NotNull
   public LauncherAssert doesNotHavePins() {
-    assertThatReturnValueOfHasPins().isFalse();
+    assertThatHasPins().isFalse();
     return this;
   }
 
   @NotNull
   public ListAssert<Launcher.Handle> pins() {
-    return assertThatCall(actual(), "findPins", array(Launcher.Handle[].class))
-      .asInstanceOf(listFromArray(Launcher.Handle[].class));
+    try {
+      return MethodAssert.assertThat(Launcher.class, "findPins")
+                         .invokeAsync(actual(), array(Launcher.Handle[].class))
+                         .asInstanceOf(listFromArray(Launcher.Handle[].class));
+    } catch (final NoSuchMethodException cause) {
+      throw new RuntimeException(cause);
+    }
   }
 
   @NotNull
-  @SuppressWarnings("resource")
-  public LauncherAssert hasPinned(final int index) {
-    describedAs("is " + actual().getHandles().get(index) + " pinned")
-      .extracting(launcher -> launcher.isPinned(index), BOOLEAN)
-      .isEqualTo(true);
+  public LauncherAssert hasPinned(final String id) {
+    assertThatIsPinned(id).isTrue();
     return this;
   }
 
   @NotNull
-  @SuppressWarnings("resource")
-  public LauncherAssert hasUnpinned(final int index) {
-    describedAs("is " + actual().getHandles().get(index) + " unpinned")
-      .extracting(launcher -> launcher.isPinned(index), BOOLEAN)
-      .isEqualTo(false);
+  public LauncherAssert hasUnpinned(final String id) {
+    assertThatIsPinned(id).isFalse();
     return this;
   }
 
@@ -63,11 +64,35 @@ public final class LauncherAssert
     return new LauncherAssert(launcher);
   }
 
-  private AbstractBooleanAssert<?> assertThatReturnValueOfHasHandles() {
-    return assertThatCall(actual(), "hasHandles", BOOLEAN);
+  private AbstractBooleanAssert<?> assertThatHasHandles() {
+    try {
+      return MethodAssert.assertThat(Launcher.class, "hasHandles")
+                         .invoke(actual())
+                         .asInstanceOf(BOOLEAN);
+    } catch (final IllegalAccessException
+                 | InvocationTargetException
+                 | NoSuchMethodException cause) {
+      throw new RuntimeException(cause);
+    }
   }
 
-  private AbstractBooleanAssert<?> assertThatReturnValueOfHasPins() {
-    return assertThatCall(actual(), "hasPins", BOOLEAN);
+  private AbstractBooleanAssert<?> assertThatHasPins() {
+    try {
+      return MethodAssert.assertThat(Launcher.class, "hasPins")
+                         .invokeAsync(actual())
+                         .asInstanceOf(BOOLEAN);
+    } catch (final NoSuchMethodException cause) {
+      throw new RuntimeException(cause);
+    }
+  }
+
+  private AbstractBooleanAssert<?> assertThatIsPinned(final String id) {
+    try {
+      return MethodAssert.assertThat(Launcher.class, "isPinned")
+                         .invokeAsync(actual(), id)
+                         .asInstanceOf(BOOLEAN);
+    } catch (final NoSuchMethodException cause) {
+      throw new RuntimeException(cause);
+    }
   }
 }

@@ -16,9 +16,14 @@
 
 package com.jeanbarrossilva.dias.core;
 
+import org.assertj.core.api.Assertions;
+import org.assertj.core.api.FutureAssert;
 import org.assertj.core.api.InstanceOfAssertFactory;
 import org.assertj.core.api.ListAssert;
 
+import java.util.concurrent.Future;
+
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,7 +41,8 @@ public final class InstanceOfAssertFactories {
    * @param previousClass Class of the array.
    * @param <Element> An element of the array.
    */
-  public static <Element> InstanceOfAssertFactory<Element[], ListAssert<Element>> listFromArray(
+  public static <Element> InstanceOfAssertFactory<Element[],
+                                                  ListAssert<Element>> listFromArray(
     final Class<Element[]> previousClass
   ) {
     if (previousClass == null)

@@ -6,8 +6,10 @@ import android.view.View;
 
 import com.jeanbarrossilva.dias.Launcher;
 import com.jeanbarrossilva.dias.R;
-import com.jeanbarrossilva.dias.core.IntHashSets;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
+import com.jeanbarrossilva.dias.persistence.PinDatabase;
+
+import static androidx.room.Room.inMemoryDatabaseBuilder;
 
 public class HomeActivity extends Activity {
   private Launcher launcher;
@@ -16,8 +18,13 @@ public class HomeActivity extends Activity {
   @Override
   public void onCreate(final Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    launcher = new Launcher(this);
-    launcher.pin(IntHashSets.of(0));
+    launcher = new Launcher(
+      this,
+      inMemoryDatabaseBuilder(this, PinDatabase.class)
+        .allowMainThreadQueries()
+        .build()
+    );
+    launcher.pin(launcher.getHandles().getFirst().id);
     binding = HomeActivityBinding.inflate(getLayoutInflater());
     showHandles();
     setUpListExpansionToggle();

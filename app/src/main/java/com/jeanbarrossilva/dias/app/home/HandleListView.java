@@ -123,7 +123,7 @@ public class HandleListView extends RecyclerView {
   ) {
     super(context, attrs, defStyleRes);
     if (isInEditMode())
-      setLauncher(Launcher.sample());
+      setLauncher(Launcher.sample(context));
   }
 
   public void setLauncher(@Nullable final Launcher launcher) {
