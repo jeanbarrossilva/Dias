@@ -40,7 +40,7 @@ public final class LauncherAssert
   public ListAssert<Launcher.Handle> pins() {
     try {
       return MethodAssert.assertThat(Launcher.class, "findPins")
-                         .invokeAsync(actual(), array(Launcher.Handle[].class))
+                         .invokeAsync(actual())
                          .asInstanceOf(listFromArray(Launcher.Handle[].class));
     } catch (final NoSuchMethodException cause) {
       throw new RuntimeException(cause);
@@ -88,7 +88,7 @@ public final class LauncherAssert
 
   private AbstractBooleanAssert<?> assertThatIsPinned(final String id) {
     try {
-      return MethodAssert.assertThat(Launcher.class, "isPinned")
+      return MethodAssert.assertThat(Launcher.class, "isPinned", String.class)
                          .invokeAsync(actual(), id)
                          .asInstanceOf(BOOLEAN);
     } catch (final NoSuchMethodException cause) {
