@@ -45,11 +45,11 @@ public final class InstallationDiff {
    * default.
    *
    * @implNote Given another array of handles <i>A</i> and that this diff is of
-   *   an installation, when merging this diff into <i>A</i>, it is reasonable
-   *   for the caller to assume that none of the handles held by this field are
-   *   in <i>A</i> (i.e., {@code handles} \ <i>A</i> = {@code handles}). This
-   *   stems from our assumption that this class was instantiated because of an
-   *   actual installation, notified by the system.
+   *   an installation, when merging this diff to <i>A</i>, it is reasonable for
+   *   the caller to assume that none of the handles held by this field are in
+   *   <i>A</i> (i.e., {@code handles} \ <i>A</i> = {@code handles}). This stems
+   *   from our assumption that this class was instantiated because of an actual
+   *   installation, notified by the system.
    * @see #merge(Handle[])
    */
   public final Handle[] handles;
@@ -109,7 +109,8 @@ public final class InstallationDiff {
         return null;
       return switch (action) {
         case Intent.ACTION_PACKAGE_ADDED ->
-          intent.hasExtra(Intent.EXTRA_REPLACING)
+          intent
+            .getBooleanExtra(Intent.EXTRA_REPLACING, /* defaultValue = */ false)
             ? REPLACEMENT
             : INSTALLATION;
         case Intent.ACTION_PACKAGE_FULLY_REMOVED ->
@@ -117,7 +118,10 @@ public final class InstallationDiff {
         case Intent.ACTION_PACKAGE_REPLACED ->
           REPLACEMENT;
         case Intent.ACTION_PACKAGE_REMOVED ->
-          intent.hasExtra(Intent.EXTRA_REPLACING) ? null : UNINSTALLATION;
+          intent
+            .getBooleanExtra(Intent.EXTRA_REPLACING, /* defaultValue = */ false)
+            ? null
+            : UNINSTALLATION;
         default ->
           null;
       };
