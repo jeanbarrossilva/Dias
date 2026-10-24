@@ -4,10 +4,10 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;
 
-import com.jeanbarrossilva.dias.Launcher;
+import com.jeanbarrossilva.dias.launcher.Launcher;
 import com.jeanbarrossilva.dias.R;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
-import com.jeanbarrossilva.dias.persistence.PinDatabase;
+import com.jeanbarrossilva.dias.launcher.persistence.PinDatabase;
 
 import static androidx.room.Room.inMemoryDatabaseBuilder;
 

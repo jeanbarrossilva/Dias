@@ -12,7 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StyleRes;
 import androidx.appcompat.widget.AppCompatTextView;
 
-import com.jeanbarrossilva.dias.Launcher;
+import com.jeanbarrossilva.dias.launcher.Handle;
 import com.jeanbarrossilva.dias.R;
 
 final public class HandleView extends AppCompatTextView {
@@ -42,7 +42,7 @@ final public class HandleView extends AppCompatTextView {
     throw newUnsupportedInflationException();
   }
 
-  public void setHandle(@NonNull final Launcher.Handle handle) {
+  public void setHandle(@NonNull final Handle handle) {
     setText(handle.label);
     setOnClickListener(clickedView -> {
       final Context launchContext = clickedView.getContext();

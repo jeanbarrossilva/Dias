@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.persistence;
+package com.jeanbarrossilva.dias.launcher.persistence;
 
 import androidx.room.Database;
 import androidx.room.Insert;

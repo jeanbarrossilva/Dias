@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias;
+package com.jeanbarrossilva.dias.launcher;
 
 import android.content.Context;
 
@@ -11,8 +11,8 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-import static com.jeanbarrossilva.dias.HandleAssert.assertThat;
-import static com.jeanbarrossilva.dias.Launcher.Handle.SAMPLE;
+import static com.jeanbarrossilva.dias.launcher.HandleAssert.assertThat;
+import static com.jeanbarrossilva.dias.launcher.Handle.SAMPLE;
 
 @RunWith(RobolectricTestRunner.class)
 public class HandleTests {

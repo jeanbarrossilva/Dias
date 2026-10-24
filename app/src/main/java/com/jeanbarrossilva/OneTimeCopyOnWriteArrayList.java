@@ -39,6 +39,9 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.checkIndex;
 
+// Dias-specific changes:
+// • Made `DEFAULT_INITIAL_CAPACITY` public.
+
 /**
  * An {@link ArrayList} with
  * <a href="https://en.wikipedia.org/wiki/Copy-on-write">copy-on-write</a> (CoW)
@@ -67,6 +70,11 @@ import static java.util.Objects.checkIndex;
  * @param <Element> An element of this list.
  */
 public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
+  // ideally, this capacity is the same as the superclass'; but, because the
+  // superclass' isn't part of Android API 36.1's libcore's public API, we
+  // hard-code it here.
+  public static final int DEFAULT_INITIAL_CAPACITY = 10;
+
   private Element[] backingArray;
   private boolean isImmutableTreeSetLike;
 
@@ -75,11 +83,6 @@ public class OneTimeCopyOnWriteArrayList<Element> extends ArrayList<Element> {
   // make so that `toArray()`—which is how CoW gets done through libcore's
   // implementation— returns the backing array directly.
   private boolean willReturnUnsafeBackingArray = false;
-
-  // ideally, this capacity is the same as the superclass'; but, because the
-  // superclass' isn't part of Android API 36.1's libcore's public API, we
-  // hard-code it here.
-  static final int DEFAULT_INITIAL_CAPACITY = 10;
 
   final class Spliterator implements java.util.Spliterator<Element> {
     private int currentIndex;
