@@ -12,6 +12,8 @@ import androidx.annotation.RestrictTo;
 
 import com.jeanbarrossilva.dias.launcher.Handle;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static java.lang.Math.abs;
@@ -53,19 +55,34 @@ public class InstallationChangeReceiver extends BroadcastReceiver {
     final Uri data = intent.getData();
     if (data == null)
       return;
-    final String changedPackageName = data.getSchemeSpecificPart();
-    if (changedPackageName == null)
+    final int packageUid =
+      intent.getIntExtra(Intent.EXTRA_UID, /* defaultValue = */ -1);
+    if (packageUid < 0)
       return;
-    final Handle[] changedHandles =
-      Handle.queryAll(packageManager,
-                      Handle.QUERY_INTENT.setPackage(changedPackageName));
+    final String[] packageNames = packageManager.getPackagesForUid(packageUid);
+    if (packageNames == null)
+      return;
+    final var queriedHandleMap =
+      new HashMap<String, Handle>(/* initialCapacity = */ packageNames.length);
+    final Intent queryIntent = Handle.createQueryIntent();
+    for (final String packageName: packageNames)
+      Handle.queryAll(
+                            packageManager,
+                            queryIntent.setPackage(packageName),
+        /* destination = */ queriedHandleMap
+      );
     final InstallationDiff diff = new InstallationDiff(
-                      changedHandles,
-      /* indices = */ stream(changedHandles)
-                        .map(handle -> binarySearch(handles, handle))
-                        .mapToInt(index -> index >= 0 ? index : abs(index + 1))
-                        .toArray(),
-                      diffKind
+      /* handles = */   queriedHandleMap.values().toArray(Handle[]::new),
+      /* handleIDs = */ queriedHandleMap.keySet().toArray(String[]::new),
+      /* indices = */   queriedHandleMap
+                          .values()
+                          .stream()
+                          .map(handle -> binarySearch(handles, handle))
+                          .mapToInt(
+                            index -> index >= 0 ? index : abs(index + 1)
+                          )
+                          .toArray(),
+                        diffKind
     );
     listener.accept(diff);
   }

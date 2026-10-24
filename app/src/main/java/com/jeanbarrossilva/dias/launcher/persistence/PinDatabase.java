@@ -17,6 +17,9 @@ public abstract class PinDatabase extends RoomDatabase {
     @Query("SELECT * FROM pins ORDER BY id")
     public abstract Pin[] selectAll();
 
+    @Query("SELECT id FROM pins ORDER BY id")
+    public abstract String[] selectAllIDs();
+
     @Query("SELECT COUNT(*) FROM pins")
     public abstract int count();
 
