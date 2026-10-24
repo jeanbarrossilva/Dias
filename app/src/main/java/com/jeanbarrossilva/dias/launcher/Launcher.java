@@ -416,7 +416,8 @@ public final class Launcher implements Closeable {
     return handles[indexing.get(id)];
   }
 
-  private void unpin(final Set<String> ids, final IntHashSet indices) {
+  private void unpin(final Set<String> ids, final IntHashSet indices) throws
+    HandleNotFoundException {
     assertContainsAll(ids);
     final String[] idsAsArray = ids.toArray(new String[0]);
     final boolean didUnpin = pinDatabase.getDao().delete(idsAsArray) > 0;
