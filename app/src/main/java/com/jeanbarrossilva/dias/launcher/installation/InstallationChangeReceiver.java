@@ -6,19 +6,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 
 import androidx.annotation.RestrictTo;
 
 import com.jeanbarrossilva.dias.launcher.Handle;
 
 import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Consumer;
 
 import static java.lang.Math.abs;
 import static java.util.Arrays.binarySearch;
-import static java.util.Arrays.stream;
 
 public class InstallationChangeReceiver extends BroadcastReceiver {
   private final Handle[] handles;
@@ -51,9 +48,6 @@ public class InstallationChangeReceiver extends BroadcastReceiver {
       return;
     final InstallationDiff.Kind diffKind = InstallationDiff.Kind.parse(intent);
     if (diffKind == null)
-      return;
-    final Uri data = intent.getData();
-    if (data == null)
       return;
     final int packageUid =
       intent.getIntExtra(Intent.EXTRA_UID, /* defaultValue = */ -1);
