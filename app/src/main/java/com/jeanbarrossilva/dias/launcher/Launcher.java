@@ -13,7 +13,6 @@ import androidx.collection.MutableObjectIntMap;
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.core.IntHashSets;
 import com.jeanbarrossilva.dias.launcher.installation.InstallationChangeReceiver;
-import com.jeanbarrossilva.dias.launcher.installation.InstallationDiff;
 import com.jeanbarrossilva.dias.launcher.persistence.PinDatabase;
 
 import org.agrona.collections.IntHashSet;
@@ -161,20 +160,26 @@ public final class Launcher implements Closeable {
     this.installationChangeReceiver =
       new InstallationChangeReceiver(handles, diff -> {
         this.handles = diff.merge(handles);
-        if (diff.kind != InstallationDiff.Kind.UNINSTALLATION)
-          return;
-        for (final int index: diff.indices)
-          this.indexing.removeValueAt(index);
-        unpin(
-          Set.of(
-            intersection(
-              pinDatabase.getDao().selectAllIDs(),
-              diff.handleIDs,
-              String[].class
-            )
-          ),
-          IntHashSets.of(diff.indices)
-        );
+        switch (diff.kind) {
+          case INSTALLATION, REPLACEMENT -> {
+            for (int index = 0; index < diff.handleIDs.length; index++)
+              this.indexing.put(diff.handleIDs[index], diff.indices[index]);
+          }
+          case UNINSTALLATION -> {
+            for (final int index: diff.indices)
+              this.indexing.removeValueAt(index);
+            unpin(
+              Set.of(
+                intersection(
+                  pinDatabase.getDao().selectAllIDs(),
+                  diff.handleIDs,
+                  String[].class
+                )
+              ),
+              IntHashSets.of(diff.indices)
+            );
+          }
+        }
       });
     if (context != null)
       context.registerReceiver(installationChangeReceiver,
