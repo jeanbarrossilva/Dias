@@ -158,11 +158,14 @@ public final class Launcher implements Closeable {
     this.installationChangeReceiver =
       new InstallationChangeReceiver(handles, diff -> {
         this.handles = diff.merge(handles);
+        if (diff.kind != InstallationDiff.Kind.UNINSTALLATION)
+          return;
         for (final int index: diff.indices)
           this.indexing.removeValueAt(index);
-        if (diff.kind == InstallationDiff.Kind.UNINSTALLATION)
-          unpin(/* ids = */     intersection(findPins(), diff.handles),
-            /* indices = */ IntHashSets.of(diff.indices));
+        unpin(
+          /* ids = */     intersection(findPins(), diff.handles),
+          /* indices = */ IntHashSets.of(diff.indices)
+        );
       });
     if (context != null)
       context.registerReceiver(installationChangeReceiver,
