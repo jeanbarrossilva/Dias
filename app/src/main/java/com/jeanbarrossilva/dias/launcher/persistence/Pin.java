@@ -1,10 +1,11 @@
-package com.jeanbarrossilva.dias.persistence;
+package com.jeanbarrossilva.dias.launcher.persistence;
 
 import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
-import com.jeanbarrossilva.dias.Launcher;
+import com.jeanbarrossilva.dias.launcher.Handle;
+import com.jeanbarrossilva.dias.launcher.Launcher;
 
 @Entity(tableName = "pins")
 public final class Pin {
@@ -16,7 +17,7 @@ public final class Pin {
     this.id = id;
   }
 
-  public Launcher.Handle toHandle(final Launcher launcher) {
-    return new Launcher.Handle(id, launcher.label(id));
+  public Handle toHandle(final Launcher launcher) {
+    return new Handle(id, launcher.label(id));
   }
 }

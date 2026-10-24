@@ -13,7 +13,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.jeanbarrossilva.dias.Launcher;
+import com.jeanbarrossilva.dias.launcher.Handle;
+import com.jeanbarrossilva.dias.launcher.Launcher;
 
 import java.util.Optional;
 
@@ -21,24 +22,24 @@ import static java.util.Arrays.asList;
 
 public class HandleListView extends RecyclerView {
   private static final class Adapter
-    extends ListAdapter<Launcher.Handle, ViewHolder> {
+    extends ListAdapter<Handle, ViewHolder> {
     private final Launcher launcher;
     private boolean isExpanded;
 
-    private static final DiffUtil.ItemCallback<Launcher.Handle> HANDLE_DIFFING =
+    private static final DiffUtil.ItemCallback<Handle> HANDLE_DIFFING =
       new DiffUtil.ItemCallback<>() {
         @Override
         public boolean areContentsTheSame(
-          final Launcher.Handle oldItem,
-          final Launcher.Handle newItem
+          final Handle oldItem,
+          final Handle newItem
         ) {
           return areItemsTheSame(oldItem, newItem);
         }
 
         @Override
         public boolean areItemsTheSame(
-          final Launcher.Handle oldItem,
-          final Launcher.Handle newItem
+          final Handle oldItem,
+          final Handle newItem
         ) {
           return oldItem.equals(newItem);
         }
@@ -70,7 +71,7 @@ public class HandleListView extends RecyclerView {
       @NonNull final ViewHolder holder,
       final int position
     ) {
-      final Launcher.Handle handle = getItem(position);
+      final Handle handle = getItem(position);
       ((HandleView) holder.itemView).setHandle(handle);
     }
 
@@ -79,7 +80,7 @@ public class HandleListView extends RecyclerView {
         isExpanded = false;
         return;
       }
-      final Launcher.Handle[] pins = launcher.findPins();
+      final Handle[] pins = launcher.findPins();
       submitList(asList(pins));
       isExpanded = false;
     }

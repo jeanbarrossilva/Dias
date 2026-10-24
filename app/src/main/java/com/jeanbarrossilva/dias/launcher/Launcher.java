@@ -1,11 +1,7 @@
-package com.jeanbarrossilva.dias;
+package com.jeanbarrossilva.dias.launcher;
 
 import android.content.ActivityNotFoundException;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -13,15 +9,19 @@ import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.collection.MutableObjectIntMap;
 
-import com.google.common.collect.ContiguousSet;
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.core.IntHashSets;
-import com.jeanbarrossilva.dias.persistence.PinDatabase;
+import com.jeanbarrossilva.dias.launcher.installation.InstallationChangeReceiver;
+import com.jeanbarrossilva.dias.launcher.installation.InstallationDiff;
+import com.jeanbarrossilva.dias.launcher.persistence.PinDatabase;
 
 import org.agrona.collections.IntHashSet;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -30,9 +30,11 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static androidx.room.Room.inMemoryDatabaseBuilder;
+import static java.util.Arrays.binarySearch;
 import static java.util.Arrays.stream;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 /**
  * View of both the homescreen and the drawer. Although they're shown separately
@@ -40,121 +42,12 @@ import static java.util.Objects.requireNonNull;
  * for every supported operation to be performed.
  */
 public final class Launcher implements Closeable {
+  private final WeakReference<Context> contextRef;
+  private final InstallationChangeReceiver installationChangeReceiver;
   private final PinDatabase pinDatabase;
-  private final Handle[] handles;
-
-  // this *might* be problematic. if an app gets installed after this launcher
-  // has been instantiated, these indices may be of different handles or out of
-  // bounds, and that new app won't have been indexed; conversely, removing an
-  // app won't cause this to map to be mutated, because we're not listening to
-  // those installs/uninstalls.
+  private Handle[] handles;
   private final MutableObjectIntMap<String> indexing;
-
   private Consumer<Pinning> onPinningListener;
-
-  private static final Intent queryIntent =
-    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
-
-  /** Holds information about a user-visible, installed application. */
-  @SuppressWarnings("ClassCanBeRecord")
-  public static final class Handle implements Comparable<Handle> {
-    /**
-     * Identifier of this handle. Consists of this handle's associated
-     * activity's flattened name.
-     */
-    @NonNull public final String id;
-
-    /** Localized text considered to be the name of the application. */
-    @NonNull public final String label;
-
-    private static final Launcher.Handle[] SAMPLES =
-      ContiguousSet.closedOpen(0, 13)
-        .stream()
-        .map(
-          index -> new Launcher.Handle(
-            /* packageName = */  "com.jeanbarrossilva.dias",
-            /* activityName = */ "com.jeanbarrossilva.dias.Activity"
-                                   + (index + 1),
-            /* label = */        "App " + (index + 1)
-          )
-        )
-        .toArray(Launcher.Handle[]::new);
-
-    @VisibleForTesting static final Launcher.Handle SAMPLE = SAMPLES[0];
-
-    @VisibleForTesting
-    Handle(
-      final String packageName,
-      final String activityName,
-      final String label
-    ) throws NullPointerException {
-      this(/* id = */ packageName + '/' + activityName, label);
-    }
-
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public Handle(final String id, final String label) {
-      this.id = id;
-      this.label = label;
-    }
-
-    @Override
-    public boolean equals(@Nullable final Object obj) {
-      return obj instanceof Handle typedObj
-        && id.equals(typedObj.id)
-        && label.equals(typedObj.label);
-    }
-
-    @Override
-    public int hashCode() {
-      return hash(id, label);
-    }
-
-    @NonNull
-    @Override
-    public String toString() {
-      return label + " (" + id + ')';
-    }
-
-    @Override
-    public int compareTo(final Handle o) {
-      return label.compareTo(o.label);
-    }
-
-    @VisibleForTesting
-    ComponentName name() {
-      return ComponentName.unflattenFromString(id);
-    }
-
-    /**
-     * Starts the activity associated to this handle.
-     *
-     * @param context Context from which to start the activity.
-     * @throws ActivityNotFoundException If this handle is associated to an
-     *   activity nonexistent in the given context.
-     */
-    public void launch(@NonNull final Context context)
-      throws ActivityNotFoundException {
-      final Intent intent = new Intent()
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        .setComponent(ComponentName.unflattenFromString(id));
-      context.startActivity(intent);
-    }
-
-    @Nullable
-    private static Handle parse(
-      @NonNull final PackageManager packageManager,
-      @NonNull final ActivityInfo activityInfo
-    ) {
-      final String packageName = activityInfo.packageName;
-      if (packageName == null)
-        return null;
-      final String activityName = activityInfo.name;
-      if (activityName == null)
-        return null;
-      final String label = activityInfo.loadLabel(packageManager).toString();
-      return new Handle(packageName, activityName, label);
-    }
-  }
 
   /**
    * Exception thrown whenever handles that don't belong to a launcher are
@@ -222,38 +115,58 @@ public final class Launcher implements Closeable {
    * Instantiates a launcher containing handles to every user-visible installed
    * application on the device.
    *
-   * @param pinDatabase Database for persisting pinned handles.
    * @param context Context through which information about installed
    *   applications are queried and parsed into handles.
+   * @param pinDatabase Database for persisting pinned handles.
    * @throws NullPointerException If the database is {@code null}.
    */
   public Launcher(final Context context, final PinDatabase pinDatabase)
     throws NullPointerException {
     this(
+      context,
       pinDatabase,
       context == null || context.getPackageManager() == null
         ? new Handle[0]
-        : queryHandles(context.getPackageManager())
+        : Handle.queryAll(context.getPackageManager(), Handle.QUERY_INTENT)
     );
   }
 
   /**
    * Instantiates a launcher containing the given handles, all unpinned.
    *
+   * @param context Context to register the installation change receiver to.
    * @param pinDatabase Database for persisting pinned handles.
    * @param handles Unique handles to all applications visible to the user,
    *  sorted by label.
    * @throws NullPointerException If the database is {@code null}.
    */
   @VisibleForTesting
-  public Launcher(final PinDatabase pinDatabase, final Handle[] handles)
+  public Launcher(
+    final Context context,
+    final PinDatabase pinDatabase,
+    final Handle[] handles
+  )
     throws NullPointerException {
-    this.pinDatabase = requireNonNull(pinDatabase);
+    this.contextRef = new WeakReference<>(context);
+    this.pinDatabase = requireNonNull(pinDatabase, "pinDatabase");
     this.handles = handles;
     this.indexing = new MutableObjectIntMap<>(handles.length);
     for (int index = 0; index < handles.length; index++)
       this.indexing.put(handles[index].id, index);
     this.onPinningListener = null;
+
+    this.installationChangeReceiver =
+      new InstallationChangeReceiver(handles, diff -> {
+        this.handles = diff.merge(handles);
+        for (final int index: diff.indices)
+          this.indexing.removeValueAt(index);
+        if (diff.kind == InstallationDiff.Kind.UNINSTALLATION)
+          unpin(/* ids = */     intersection(findPins(), diff.handles),
+            /* indices = */ IntHashSets.of(diff.indices));
+      });
+    if (context != null)
+      context.registerReceiver(installationChangeReceiver,
+        InstallationChangeReceiver.FILTER);
   }
 
   /**
@@ -327,7 +240,7 @@ public final class Launcher implements Closeable {
    *   launcher.
    */
   public void pin(final String id) throws HandleNotFoundException {
-    assertContainsAll(Set.of(id));
+    assertContains(id);
     final boolean didPin = pinDatabase.getDao().insert(id);
     if (onPinningListener == null || !didPin)
       return;
@@ -362,7 +275,7 @@ public final class Launcher implements Closeable {
    *   launcher.
    */
   public void unpin(final String id) throws HandleNotFoundException {
-    assertContainsAll(Set.of(id));
+    assertContains(id);
     final boolean didUnpin = pinDatabase.getDao().delete(id);
     if (onPinningListener == null || !didUnpin)
       return;
@@ -391,13 +304,7 @@ public final class Launcher implements Closeable {
    *   launcher.
    */
   public void unpin(final Set<String> ids) throws HandleNotFoundException {
-    assertContainsAll(ids);
-    final String[] idsAsArray = ids.toArray(new String[0]);
-    final boolean didUnpin = pinDatabase.getDao().delete(idsAsArray) > 0;
-    if (onPinningListener == null || !didUnpin)
-      return;
-    final var pinning = new Pinning(getIndices(ids), false);
-    onPinningListener.accept(pinning);
+    unpin(ids, getIndices(ids));
   }
 
   /**
@@ -446,7 +353,10 @@ public final class Launcher implements Closeable {
    */
   @Override
   public void close() {
+    final Context context = contextRef.get();
     pinDatabase.close();
+    if (context != null)
+      context.unregisterReceiver(installationChangeReceiver);
     onPinningListener = null;
   }
 
@@ -465,11 +375,27 @@ public final class Launcher implements Closeable {
   public static Launcher sample(final Context context)
     throws NullPointerException {
     return new Launcher(
+                          context,
       /* pinDatabase = */ inMemoryDatabaseBuilder(context, PinDatabase.class)
                             .allowMainThreadQueries()
                             .build(),
                           Handle.SAMPLES
     );
+  }
+
+  private static Set<String> intersection(final Handle[] lhs,
+                                          final Handle[] rhs) {
+    if (lhs == null || rhs == null)
+      return null;
+    if (Arrays.equals(lhs, rhs))
+      return stream(lhs).map(handle -> handle.id).collect(toSet());
+    final var list = new ArrayList<String>(
+      /* initialCapacity = */ (lhs.length + rhs.length) / 2
+    );
+    for (final Handle a: lhs)
+      if (binarySearch(rhs, a) >= 0)
+        list.add(a.id);
+    return new HashSet<>(list);
   }
 
   /**
@@ -485,14 +411,28 @@ public final class Launcher implements Closeable {
     return handles[indexing.get(id)];
   }
 
+  private void unpin(final Set<String> ids, final IntHashSet indices) {
+    assertContainsAll(ids);
+    final String[] idsAsArray = ids.toArray(new String[0]);
+    final boolean didUnpin = pinDatabase.getDao().delete(idsAsArray) > 0;
+    if (onPinningListener == null || !didUnpin)
+      return;
+    final var pinning = new Pinning(indices, false);
+    onPinningListener.accept(pinning);
+  }
+
+  private void assertContains(final String id) throws HandleNotFoundException {
+    if (!indexing.contains(id))
+      throw new HandleNotFoundException(id);
+  }
+
   private void assertContainsAll(final Set<String> ids)
     throws HandleNotFoundException {
     if (size() < ids.size())
       throw new HandleNotFoundException(ids);
-
-    // we don't use the indices;
-    // we're only delegating the rest of the assertion to this other method.
-    getIndices(ids);
+    for (final String id: ids)
+      if (!indexing.contains(id))
+        throw new HandleNotFoundException(id);
   }
 
   private IntHashSet getIndices(final Set<String> ids)
@@ -513,18 +453,5 @@ public final class Launcher implements Closeable {
 
   private int size() {
     return handles.length;
-  }
-
-  private static Handle[] queryHandles(final PackageManager packageManager) {
-    if (packageManager == null)
-      return new Handle[0];
-    return packageManager
-      .queryIntentActivities(queryIntent, PackageManager.MATCH_ALL)
-      .stream()
-      .filter(Objects::nonNull)
-      .map(r -> Handle.parse(packageManager, r.activityInfo))
-      .filter(Objects::nonNull)
-      .sorted()
-      .toArray(Handle[]::new);
   }
 }

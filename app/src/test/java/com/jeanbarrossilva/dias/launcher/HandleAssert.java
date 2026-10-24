@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias;
+package com.jeanbarrossilva.dias.launcher;
 
 import androidx.annotation.NonNull;
 
@@ -8,8 +8,8 @@ import static androidx.test.espresso.intent.Intents.intended;
 import static androidx.test.espresso.intent.Intents.assertNoUnverifiedIntents;
 import static androidx.test.espresso.intent.matcher.IntentMatchers.hasComponent;
 
-public class HandleAssert extends AbstractObjectAssert<HandleAssert, Launcher.Handle> {
-  private HandleAssert(@NonNull final Launcher.Handle handle) {
+public class HandleAssert extends AbstractObjectAssert<HandleAssert, Handle> {
+  private HandleAssert(@NonNull final Handle handle) {
     super(handle, HandleAssert.class);
   }
 
@@ -20,7 +20,7 @@ public class HandleAssert extends AbstractObjectAssert<HandleAssert, Launcher.Ha
     return this;
   }
 
-  public static HandleAssert assertThat(@NonNull final Launcher.Handle handle) {
+  public static HandleAssert assertThat(@NonNull final Handle handle) {
     return new HandleAssert(handle);
   }
 }

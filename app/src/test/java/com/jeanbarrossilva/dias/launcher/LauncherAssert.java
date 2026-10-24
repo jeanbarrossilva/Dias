@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias;
+package com.jeanbarrossilva.dias.launcher;
 
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractBooleanAssert;
@@ -9,7 +9,6 @@ import org.springframework.test.util.MethodAssert;
 import java.lang.reflect.InvocationTargetException;
 
 import static com.jeanbarrossilva.dias.core.InstanceOfAssertFactories.listFromArray;
-import static org.assertj.core.api.InstanceOfAssertFactories.array;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 
 public final class LauncherAssert
@@ -37,11 +36,11 @@ public final class LauncherAssert
   }
 
   @NotNull
-  public ListAssert<Launcher.Handle> pins() {
+  public ListAssert<Handle> pins() {
     try {
       return MethodAssert.assertThat(Launcher.class, "findPins")
                          .invokeAsync(actual())
-                         .asInstanceOf(listFromArray(Launcher.Handle[].class));
+                         .asInstanceOf(listFromArray(Handle[].class));
     } catch (final NoSuchMethodException cause) {
       throw new RuntimeException(cause);
     }
