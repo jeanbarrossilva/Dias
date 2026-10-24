@@ -1,3 +1,20 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program. If not, see https://www.gnu.org/licenses.
+ */
+
 package com.jeanbarrossilva.dias.launcher.installation;
 
 import android.content.Intent;
@@ -26,6 +43,14 @@ public final class InstallationDiff {
    * <p>
    * This array is guaranteed to be sorted and contain distinct handles by
    * default.
+   *
+   * @implNote Given another array of handles <i>A</i> and that this diff is of
+   *   an installation, when merging this diff into <i>A</i>, it is reasonable
+   *   for the caller to assume that none of the handles held by this field are
+   *   in <i>A</i> (i.e., {@code handles} \ <i>A</i> = {@code handles}). This
+   *   stems from our assumption that this class was instantiated because of an
+   *   actual installation, notified by the system.
+   * @see #merge(Handle[])
    */
   public final Handle[] handles;
 
@@ -142,9 +167,12 @@ public final class InstallationDiff {
    * returned, with the given one remaining unchanged.
    *
    * @param destination Array to which the changes represented by this diff will
-   *   be merged. It is assumed that this array is provided by a launcher and,
-   *   thus, is sorted; the behavior of this method may be undefined for a
-   *   {@code destination} that isn't sorted.
+   *   be merged.
+   *   <p>
+   *   It is assumed that this array is provided by a launcher and, thus, is
+   *   sorted, with none of its elements being {@code null}. The behavior of
+   *   this method may be undefined in scenarios in which these conditions
+   *   aren't satisfied.
    * @return An array with the changes applied.
    */
   @NonNull

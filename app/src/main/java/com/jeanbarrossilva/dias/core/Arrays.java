@@ -62,7 +62,7 @@ public final class Arrays {
    * <p>
    * The returned array will have the same length as {@code self}. However, the
    * difference modulo may be lesser, and will be set as the first element of
-   * {@code count} when this function returns. For a trimmed copy of the
+   * {@code length} when this function returns. For a trimmed copy of the
    * difference, refer to {@link #difference(Object[], Object[], Class)}.
    *
    * @param self Array to compare to {@code other}.
@@ -100,7 +100,8 @@ public final class Arrays {
   }
 
   /**
-   * Produces a typed copy of the unordered union of the two given arrays.
+   * Produces a typed copy of the sorted union of the two given arrays.
+   * <p>
    * If {@code self} is not {@code null}, it is assumed to be sorted, have
    * comparable elements and none in common with the other array; in case one of
    * these conditions isn't satisfied, the behavior of this function is
@@ -132,7 +133,7 @@ public final class Arrays {
   }
 
   /**
-   * Produces the unordered union of the two given arrays.
+   * Produces the sorted union of the two given arrays.
    * <p>
    * This function assumes that both arrays contain comparable elements; that
    * {@code self}, if not {@code null}, is sorted; and that its elements differ
@@ -159,7 +160,7 @@ public final class Arrays {
     final Object[] result = new Object[self.length + other.length];
     System.arraycopy(
       /* src = */     self,
-      /* srcPost = */ 0,
+      /* srcPos = */ 0,
       /* dest = */    result,
       /* destPos = */ 0,
       /* length = */  self.length
