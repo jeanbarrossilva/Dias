@@ -14,7 +14,6 @@ import java.util.UUID;
 import static com.jeanbarrossilva.dias.core.Arrays.difference;
 import static com.jeanbarrossilva.dias.core.Arrays.union;
 import static java.util.Arrays.copyOf;
-import static java.util.Arrays.stream;
 import static org.assertj.core.api.InstanceOfAssertFactories.array;
 import static org.springframework.test.util.MethodAssert.assertThat;
 
@@ -112,12 +111,15 @@ public final class InstallationDiffTests {
       new int[]{0, sourceHandles.length / 2, sourceHandles.length - 1}
     };
     for (final int[] indices: indicesMatrix) {
-      final Handle[] handles =
-        stream(indices).mapToObj(index -> kind == Kind.UNINSTALLATION
-                                        ? sourceHandles[index]
-                                        : generateHandle())
-                       .toArray(Handle[]::new);
-      final var diff = new InstallationDiff(handles, indices, kind);
+      final Handle[] handles = new Handle[indices.length];
+      final String[] handleIDs = new String[indices.length];
+      for (int index = 0; index < indices.length; index++) {
+        handles[index] = kind == Kind.UNINSTALLATION
+          ? sourceHandles[indices[index]]
+          : generateHandle();
+        handleIDs[index] = handles[index].id;
+      }
+      final var diff = new InstallationDiff(handles, handleIDs, indices, kind);
       final var config = new Configuration(sourceHandles, diff);
       tester.accept(config);
     }

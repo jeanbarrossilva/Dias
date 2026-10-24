@@ -17,6 +17,7 @@
 
 package com.jeanbarrossilva.dias.core;
 
+import static java.lang.System.arraycopy;
 import static java.util.Arrays.binarySearch;
 import static java.util.Arrays.copyOf;
 
@@ -100,6 +101,86 @@ public final class Arrays {
   }
 
   /**
+   * Produces a trimmed copy of the intersection between the two given arrays.
+   * The given arrays are expected to be sorted, with only comparable elements;
+   * otherwise, the behavior of this function is undefined.
+   * <p>
+   * For an untrimmed copy, refer to {@link
+   * #intersection(Object[], Object[], int[])}.
+   *
+   * @param <Element> An element of both arrays.
+   * @param self Array to intersect with {@code other}.
+   * @param other Array to be intersected with {@code self}.
+   * @param type Class of the resulting array.
+   * @return The intersection between both arrays, or {@code null} in case
+   *   either array or {@code type} is {@code null}.
+   * @throws ClassCastException If an element of {@code self} can't be compared
+   *   to another of {@code other} or vice versa.
+   */
+  public static <Element> Element[] intersection(
+    final Element[] self,
+    final Element[] other,
+    final Class<Element[]> type
+  ) throws ClassCastException {
+    if (type == null)
+      return null;
+    final var length = new int[1];
+    final var untrimmedIntersection =
+      intersection(self, other, length);
+    return untrimmedIntersection == null
+      ? null
+      : copyOf(untrimmedIntersection, length[0], type);
+  }
+
+  /**
+   * Produces an array containing only elements present on both given arrays.
+   * The given arrays are expected to be sorted, with only comparable elements;
+   * otherwise, the behavior of this function is undefined.
+   * <p>
+   * The returned array will have the same length as the greatest of the two
+   * arrays. However, the amount of elements in common may be lesser, and will
+   * be held by the {@code length} when this function returns.
+   *
+   * @param self Array to intersect with {@code other}.
+   * @param other Array to be intersected with {@code self}.
+   * @param length Holder of the <i>actual</i> amount of elements that both
+   *   arrays have in common. The amount will be put into the first index if
+   *   {@code count.length} ≥ 1.
+   * @return The intersection between both arrays, or {@code null} in case
+   *   either array is {@code null}.
+   * @throws ClassCastException If an element of {@code self} can't be compared
+   *   to another of {@code other} or vice versa.
+   */
+  public static Object[] intersection(
+    final Object[] self,
+    final Object[] other,
+    final int[] length
+  ) throws ClassCastException {
+    if (self == null || other == null)
+      return null;
+    if (self.length == 0) {
+      if (!isNullOrEmpty(length))
+        length[0] = 0;
+      return self;
+    }
+    if (other.length == 0) {
+      if (!isNullOrEmpty(length))
+        length[0] = 0;
+      return other;
+    }
+    final Object[] greatest = self.length >= other.length ? self : other;
+    final Object[] smallest = greatest == other ? self : other;
+    final Object[] result = new Object[greatest.length];
+    int additionCount = 0;
+    for (final Object element: smallest)
+      if (binarySearch(greatest, element) >= 0)
+        result[additionCount++] = element;
+    if (!isNullOrEmpty(length))
+      length[0] = additionCount;
+    return result;
+  }
+
+  /**
    * Produces a typed copy of the sorted union of the two given arrays.
    * <p>
    * If {@code self} is not {@code null}, it is assumed to be sorted, have
@@ -158,25 +239,13 @@ public final class Arrays {
     if (other.length == 0)
       return self;
     final Object[] result = new Object[self.length + other.length];
-    System.arraycopy(
-      /* src = */     self,
-      /* srcPos = */ 0,
-      /* dest = */    result,
-      /* destPos = */ 0,
-      /* length = */  self.length
-    );
+    copy(result, self);
     for (int i = 0; i < other.length; i++) {
       final Object element = other[i];
       int j = binarySearch(result, 0, self.length + i, element);
       if (j < 0)
         j = -j - 1;
-      System.arraycopy(
-        /* src = */     result,
-        /* srcPos = */  j,
-        /* dest = */    result,
-        /* destPos = */ j + 1,
-        /* length = */  self.length + i - j
-      );
+      offset(result, /* from = */ j, /* to = */ self.length + i, /* by = */ 1);
       result[j] = element;
     }
     return result;
@@ -189,5 +258,56 @@ public final class Arrays {
    */
   public static boolean isNullOrEmpty(final int[] self) {
     return self == null || self.length == 0;
+  }
+
+  /**
+   * Copies all elements of {@code other} to {@code self}, starting from the
+   * beginning of the two arrays, such that
+   * {@code Arrays.copyOfRange(self, 0, other.length)} contains every element of
+   * {@code other} in order.
+   *
+   * @param self Array to which the other will be copied.
+   * @param other Array to be copied to the beginning of {@code self}.
+   * @see java.util.Arrays#copyOfRange(Object[], int, int)
+   * @throws IndexOutOfBoundsException If the other array doesn't fit into
+   *   {@code self}.
+   * @throws NullPointerException If either array is {@code null}.
+   */
+  public static void copy(final Object[] self, final Object[] other) {
+    arraycopy(
+      /* src = */     other,
+      /* srcPos = */  0,
+      /* dest = */    self,
+      /* destPos = */ 0,
+      /* length = */  other.length
+    );
+  }
+
+  /**
+   * Moves a portion of the array by the given offset.
+   *
+   * @param self Array whose portion will be moved.
+   * @param from Start index of the portion to be moved (inclusive).
+   * @param to End index of the portion to be moved (exclusive).
+   * @param by The offset; the amount of indices to move the portion by.
+   * @throws IndexOutOfBoundsException If the start index is lesser than the end
+   *   one; either index is outside the array's bounds; or the portion's length
+   *   (i.e., {@code to} - {@code from}) is greater than
+   *   {@code self.length} - {@code from}.
+   * @throws NullPointerException If the array is {@code null}.
+   */
+  public static void offset(
+    final Object[] self,
+    final int from,
+    final int to,
+    final int by
+  ) throws IndexOutOfBoundsException, NullPointerException {
+    arraycopy(
+      /* src = */     self,
+      /* srcPos = */  from,
+      /* dest = */    self,
+      /* destPos = */ from + by,
+      /* length = */  to - from
+    );
   }
 }

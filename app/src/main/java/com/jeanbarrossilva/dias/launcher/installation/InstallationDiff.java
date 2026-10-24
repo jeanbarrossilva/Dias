@@ -55,12 +55,23 @@ public final class InstallationDiff {
   public final Handle[] handles;
 
   /**
-   * Indices of the {@link InstallationChangeReceiver}'s handle array at which
-   * this diff's handles are; or, in case this is an addition or a replacement,
-   * at which they should be inserted.
+   * IDs of all handles in the {@link #handles} array.
    * <p>
-   * This array is guaranteed to be sorted and contain distinct indices by
-   * default.
+   * The contents of this array equal, in order, to those of:
+   * <pre>
+   *   {@code Arrays.stream(handles)
+   *       .map(handle -> handle.id)
+   *       .toArray(String[]::new)}
+   * </pre>
+   *
+   * @see Handle#id
+   * @see Arrays#stream
+   */
+  public final String[] handleIDs;
+
+  /**
+   * Indices at which each handle in {@link #handles} is or will be placed in
+   * the array to which this diff may be merged.
    */
   public final int[] indices;
 
@@ -131,10 +142,17 @@ public final class InstallationDiff {
   @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
   InstallationDiff(
     final Handle[] handles,
+    final String[] handleIDs,
     final int[] indices,
     final Kind kind
   ) {
+    assert handles.length == handleIDs.length
+        && handleIDs.length == indices.length;
+    if (InstallationDiff.class.desiredAssertionStatus())
+      for (final int index: indices)
+        assert index >= 0;
     this.handles = handles;
+    this.handleIDs = handleIDs;
     this.indices = indices;
     this.kind = kind;
   }
@@ -155,33 +173,41 @@ public final class InstallationDiff {
   @NonNull
   @Override
   public String toString() {
-    return "InstallationDiff{handles="
-      + Arrays.toString(handles)
+    return "InstallationDiff(handleIDs="
+      + Arrays.toString(handleIDs)
       + ", indices="
       + Arrays.toString(indices)
       + ", kind="
       + kind
-      + '}';
+      + ')';
   }
 
   /**
    * Applies the changes contained in this diff to the given array. They'll be
-   * applied in place in case they fit into it, and {@code destination} will be
-   * the array returned by this method; otherwise, a new array is allocated and
-   * returned, with the given one remaining unchanged.
+   * applied in place in case they fit into it, with {@code destination} being
+   * the array returned by this method; otherwise, a new array is allocated, has
+   * the changes applied to it and is returned, with the given one remaining
+   * unchanged.
    *
-   * @param destination Array to which the changes represented by this diff will
+   * @param destination Array to which the changes represented by this diff may
    *   be merged.
    *   <p>
    *   It is assumed that this array is provided by a launcher and, thus, is
    *   sorted, with none of its elements being {@code null}. The behavior of
    *   this method may be undefined in scenarios in which these conditions
    *   aren't satisfied.
+   *   <p>
+   *   <b>NOTE:</b> The {@link #indices} of this diff should be relative to this
+   *   array; if not, this method may return a nonsensical array, or even throw
+   *   an {@link IndexOutOfBoundsException}.
    * @return An array with the changes applied.
+   * @throws IndexOutOfBoundsException If one of the {@link #indices} is outside
+   *   the given array's bounds.
    */
   @NonNull
   @RestrictTo(RestrictTo.Scope.LIBRARY)
-  public Handle[] merge(@NonNull final Handle[] destination) {
+  public Handle[] merge(@NonNull final Handle[] destination)
+    throws IndexOutOfBoundsException {
     Handle[] result = destination;
     switch (kind) {
       case INSTALLATION ->

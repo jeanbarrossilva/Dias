@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -14,7 +15,9 @@ import androidx.annotation.VisibleForTesting;
 
 import com.google.common.collect.ContiguousSet;
 
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.hash;
 
@@ -23,15 +26,6 @@ import static java.util.Objects.hash;
  */
 @SuppressWarnings("ClassCanBeRecord")
 public final class Handle implements Comparable<Handle> {
-  /**
-   * Default intent for querying handles.
-   *
-   * @see #queryAll(PackageManager, Intent)
-   */
-  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-  public static final Intent QUERY_INTENT =
-    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
-
   /** Handles for demonstration purposes. */
   @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
   public static final Handle[] SAMPLES =
@@ -79,15 +73,52 @@ public final class Handle implements Comparable<Handle> {
     this.label = label;
   }
 
-  public static Handle[] queryAll(final PackageManager packageManager,
-                                  final Intent intent) {
-    return packageManager
-        .queryIntentActivities(intent, PackageManager.MATCH_ALL)
-        .stream()
-        .map(r -> Handle.parse(packageManager, r.activityInfo))
-        .filter(Objects::nonNull)
-        .sorted()
-        .toArray(Handle[]::new);
+  /**
+   * Instantiates an intent for querying handles.
+   *
+   * @see #queryAll(PackageManager, Intent)
+   */
+  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+  public static Intent createQueryIntent() {
+    return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+  }
+
+  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+  public static Map<String, Handle> queryAll(
+    final PackageManager packageManager,
+    final Intent intent
+  ) {
+    final List<ResolveInfo> resolveInfos =
+      packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL);
+    final var result =
+      new HashMap<String, Handle>(/* initialCapacity = */ resolveInfos.size());
+    queryAll(packageManager, resolveInfos, result);
+    return result;
+  }
+
+  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+  public static void queryAll(
+    final PackageManager packageManager,
+    final Intent intent,
+    final Map<String, Handle> destination
+  ) {
+    queryAll(
+      packageManager,
+      packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL),
+      destination
+    );
+  }
+
+  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+  public static void queryAll(
+    final PackageManager packageManager,
+    final List<ResolveInfo> resolveInfos,
+    final Map<String, Handle> destination
+  ) {
+    for (final ResolveInfo resolveInfo: resolveInfos) {
+      final Handle value = parse(packageManager, resolveInfo.activityInfo);
+      destination.put(value.id, value);
+    }
   }
 
   private static Handle parse(

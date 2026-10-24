@@ -2,6 +2,7 @@ package com.jeanbarrossilva.dias.launcher;
 
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.Intent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,8 +21,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -30,11 +29,10 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static androidx.room.Room.inMemoryDatabaseBuilder;
-import static java.util.Arrays.binarySearch;
+import static com.jeanbarrossilva.dias.core.Arrays.intersection;
 import static java.util.Arrays.stream;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
 
 /**
  * View of both the homescreen and the drawer. Although they're shown separately
@@ -48,6 +46,8 @@ public final class Launcher implements Closeable {
   private Handle[] handles;
   private final MutableObjectIntMap<String> indexing;
   private Consumer<Pinning> onPinningListener;
+
+  private static final Intent QUERY_INTENT = Handle.createQueryIntent();
 
   /**
    * Exception thrown whenever handles that don't belong to a launcher are
@@ -127,7 +127,10 @@ public final class Launcher implements Closeable {
       pinDatabase,
       context == null || context.getPackageManager() == null
         ? new Handle[0]
-        : Handle.queryAll(context.getPackageManager(), Handle.QUERY_INTENT)
+        : Handle
+          .queryAll(context.getPackageManager(), QUERY_INTENT)
+          .values()
+          .toArray(Handle[]::new)
     );
   }
 
@@ -163,8 +166,14 @@ public final class Launcher implements Closeable {
         for (final int index: diff.indices)
           this.indexing.removeValueAt(index);
         unpin(
-          /* ids = */     intersection(findPins(), diff.handles),
-          /* indices = */ IntHashSets.of(diff.indices)
+          Set.of(
+            intersection(
+              pinDatabase.getDao().selectAllIDs(),
+              diff.handleIDs,
+              String[].class
+            )
+          ),
+          IntHashSets.of(diff.indices)
         );
       });
     if (context != null)
@@ -384,23 +393,6 @@ public final class Launcher implements Closeable {
                             .build(),
                           Handle.SAMPLES
     );
-  }
-
-  private static Set<String> intersection(
-    final Handle[] lhs,
-    final Handle[] rhs
-  ) {
-    if (lhs == null || rhs == null)
-      return null;
-    if (Arrays.equals(lhs, rhs))
-      return stream(lhs).map(handle -> handle.id).collect(toSet());
-    final var list = new ArrayList<String>(
-      /* initialCapacity = */ (lhs.length + rhs.length) / 2
-    );
-    for (final Handle a: lhs)
-      if (binarySearch(rhs, a) >= 0)
-        list.add(a.id);
-    return new HashSet<>(list);
   }
 
   /**

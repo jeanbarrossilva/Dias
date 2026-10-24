@@ -5,6 +5,7 @@ import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 
 import static com.jeanbarrossilva.dias.core.Arrays.difference;
+import static com.jeanbarrossilva.dias.core.Arrays.intersection;
 import static com.jeanbarrossilva.dias.core.Arrays.isNullOrEmpty;
 import static com.jeanbarrossilva.dias.core.Arrays.union;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,6 +55,40 @@ public final class ArraysTests {
         )
       )
         .containsExactly(1, 6);
+    }
+  }
+
+  public static final class IntersectionTests {
+    @Test
+    public void returnsNullWhenEitherArrayIsNull() {
+      assertThat(intersection(null, new Integer[0], Integer[].class)).isNull();
+      assertThat(intersection(new Integer[0], null, Integer[].class)).isNull();
+    }
+
+    @Test
+    public void returnsSelfWhenSelfIsEmpty() {
+      final var self = new Integer[0];
+      assertThat(intersection(self, new Integer[]{4, 5, 6}, Integer[].class))
+        .isEqualTo(self);
+    }
+
+    @Test
+    public void returnsOtherWhenOtherIsEmpty() {
+      final var other = new Integer[0];
+      assertThat(intersection(new Integer[]{1, 2, 3}, other, Integer[].class))
+        .isEqualTo(other);
+    }
+
+    @Test
+    public void computesIntersection() {
+      assertThat(
+        intersection(
+          new Integer[]{1, 2, 3},
+          new Integer[]{2, 3, 4},
+          Integer[].class
+        )
+      )
+        .containsExactly(2, 3);
     }
   }
 
