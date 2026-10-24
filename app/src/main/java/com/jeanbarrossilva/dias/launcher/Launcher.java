@@ -158,8 +158,8 @@ public final class Launcher implements Closeable {
     this.onPinningListener = null;
 
     this.installationChangeReceiver =
-      new InstallationChangeReceiver(handles, diff -> {
-        this.handles = diff.merge(handles);
+      new InstallationChangeReceiver(this.handles, diff -> {
+        this.handles = diff.merge(this.handles);
         switch (diff.kind) {
           case INSTALLATION, REPLACEMENT -> {
             for (int index = 0; index < diff.handleIDs.length; index++)
@@ -171,7 +171,7 @@ public final class Launcher implements Closeable {
             unpin(
               Set.of(
                 intersection(
-                  pinDatabase.getDao().selectAllIDs(),
+                  this.pinDatabase.getDao().selectAllIDs(),
                   diff.handleIDs,
                   String[].class
                 )
@@ -182,8 +182,11 @@ public final class Launcher implements Closeable {
         }
       });
     if (context != null)
-      context.registerReceiver(installationChangeReceiver,
-        InstallationChangeReceiver.FILTER);
+      context.registerReceiver(
+        installationChangeReceiver,
+        InstallationChangeReceiver.createIntentFilter(),
+        Context.RECEIVER_EXPORTED
+      );
   }
 
   /**

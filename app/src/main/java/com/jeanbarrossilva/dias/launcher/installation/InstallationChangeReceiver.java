@@ -21,16 +21,6 @@ public class InstallationChangeReceiver extends BroadcastReceiver {
   private final Handle[] handles;
   private final Consumer<InstallationDiff> listener;
 
-  @RestrictTo(RestrictTo.Scope.LIBRARY)
-  public static final IntentFilter FILTER = new IntentFilter();
-
-  static {
-    FILTER.addAction(Intent.ACTION_PACKAGE_ADDED);
-    FILTER.addAction(Intent.ACTION_PACKAGE_FULLY_REMOVED);
-    FILTER.addAction(Intent.ACTION_PACKAGE_REMOVED);
-    FILTER.addAction(Intent.ACTION_PACKAGE_REPLACED);
-  }
-
   @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
   public InstallationChangeReceiver(
     final Handle[] handles,
@@ -79,5 +69,14 @@ public class InstallationChangeReceiver extends BroadcastReceiver {
                         diffKind
     );
     listener.accept(diff);
+  }
+
+  public static IntentFilter createIntentFilter() {
+    final var result = new IntentFilter();
+    result.addAction(Intent.ACTION_PACKAGE_ADDED);
+    result.addAction(Intent.ACTION_PACKAGE_FULLY_REMOVED);
+    result.addAction(Intent.ACTION_PACKAGE_REMOVED);
+    result.addAction(Intent.ACTION_PACKAGE_REPLACED);
+    return result;
   }
 }
