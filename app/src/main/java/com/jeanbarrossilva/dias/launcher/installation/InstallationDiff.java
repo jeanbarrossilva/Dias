@@ -146,11 +146,6 @@ public final class InstallationDiff {
     final int[] indices,
     final Kind kind
   ) {
-    assert handles.length == handleIDs.length
-        && handleIDs.length == indices.length;
-    if (InstallationDiff.class.desiredAssertionStatus())
-      for (final int index: indices)
-        assert index >= 0;
     this.handles = handles;
     this.handleIDs = handleIDs;
     this.indices = indices;
@@ -161,13 +156,19 @@ public final class InstallationDiff {
   public boolean equals(final Object o) {
     return o instanceof InstallationDiff castO
       && Arrays.equals(handles, castO.handles)
+      && Arrays.equals(handleIDs, castO.handleIDs)
       && Arrays.equals(indices, castO.indices)
       && kind == castO.kind;
   }
 
   @Override
   public int hashCode() {
-    return hash(Arrays.hashCode(handles), Arrays.hashCode(indices), kind);
+    return hash(
+      Arrays.hashCode(handles),
+      Arrays.hashCode(handleIDs),
+      Arrays.hashCode(indices),
+      kind
+    );
   }
 
   @NonNull
@@ -218,9 +219,11 @@ public final class InstallationDiff {
       }
       case UNINSTALLATION -> {
         result = new Handle[destination.length - handles.length];
-        for (int index = 0, j = 0; index < destination.length; index++)
+        for (int index = 0, additionCount = 0;
+             index < destination.length;
+             index++)
           if (binarySearch(indices, index) < 0)
-            result[j++] = destination[index];
+            result[additionCount++] = destination[index];
       }
     }
     return result;
