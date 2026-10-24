@@ -386,8 +386,10 @@ public final class Launcher implements Closeable {
     );
   }
 
-  private static Set<String> intersection(final Handle[] lhs,
-                                          final Handle[] rhs) {
+  private static Set<String> intersection(
+    final Handle[] lhs,
+    final Handle[] rhs
+  ) {
     if (lhs == null || rhs == null)
       return null;
     if (Arrays.equals(lhs, rhs))
