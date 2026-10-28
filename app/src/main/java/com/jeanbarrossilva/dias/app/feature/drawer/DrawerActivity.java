@@ -30,7 +30,6 @@ public final class DrawerActivity extends Activity {
   protected void onCreate(@Nullable final Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     final Launcher launcher = requireLauncher();
-    searchSession = launcher.startSearchSession();
     binding = DrawerActivityBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
     setUpAppList(launcher);
@@ -63,7 +62,7 @@ public final class DrawerActivity extends Activity {
     binding.appListView.setAdapter(launcher.getHandles());
   }
 
-  @SuppressWarnings("DataFlowIssue")
+  @SuppressWarnings({"DataFlowIssue", "resource"})
   private void setUpSearchField() {
     binding
       .searchFieldLayout
@@ -75,6 +74,8 @@ public final class DrawerActivity extends Activity {
         return windowInsets;
       });
     doOnTextChanged(binding.searchField, (text, start, before, count) -> {
+      if (searchSession == null)
+        searchSession = requireLauncher().startSearchSession();
       final List<Handle> results = searchSession.search(text.toString());
       binding.appListView.setAdapter(results);
       return Unit.INSTANCE;
