@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.app.home;
+package com.jeanbarrossilva.dias.app.feature.home;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -15,9 +15,9 @@ public class HandleViewTests {
   @Test
   public void throwsOnInflation() {
     final Context context = getApplicationContext();
-    assertThatThrownBy(() -> new HandleView(context, null))
+    assertThatThrownBy(() -> new com.jeanbarrossilva.dias.app.ui.HandleView(context, null))
       .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(() -> new HandleView(context, null, Resources.ID_NULL))
+    assertThatThrownBy(() -> new com.jeanbarrossilva.dias.app.ui.HandleView(context, null, Resources.ID_NULL))
       .isInstanceOf(UnsupportedOperationException.class);
   }
 }

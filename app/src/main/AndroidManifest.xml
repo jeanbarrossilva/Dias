@@ -3,17 +3,22 @@
   <application
     android:icon="@mipmap/ic_launcher"
     android:label="@string/app_name"
+    android:name=".app.DiasApplication"
     android:roundIcon="@mipmap/ic_launcher_round"
     android:supportsRtl="true"
     android:theme="@style/Theme.Dias">
     <activity
       android:exported="true"
-      android:name=".app.home.HomeActivity">
+      android:name=".app.feature.home.HomeActivity">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
+
+    <activity
+      android:exported="true"
+      android:name=".app.feature.drawer.DrawerActivity" />
 
     <receiver
       android:exported="true"

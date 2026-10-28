@@ -9,11 +9,12 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.UUID;
 
+import static com.jeanbarrossilva.dias.core.Arrays.copyOf;
 import static com.jeanbarrossilva.dias.core.Arrays.difference;
 import static com.jeanbarrossilva.dias.core.Arrays.union;
-import static java.util.Arrays.copyOf;
 import static org.assertj.core.api.InstanceOfAssertFactories.array;
 import static org.springframework.test.util.MethodAssert.assertThat;
 
@@ -60,8 +61,7 @@ public final class InstallationDiffTests {
              InvocationTargetException,
              NoSuchMethodException {
       testInstallationDiff(Kind.REPLACEMENT, config -> {
-        final Handle[] replacedHandles =
-          copyOf(config.sourceHandles(), config.sourceHandles().length);
+        final Handle[] replacedHandles = copyOf(config.sourceHandles());
         for (int i = 0; i < config.diff.indices.length; i++) {
           final int j = config.diff.indices[i];
           replacedHandles[j] = config.diff().handles[i];
@@ -79,7 +79,7 @@ public final class InstallationDiffTests {
              InvocationTargetException,
              NoSuchMethodException {
       testInstallationDiff(Kind.UNINSTALLATION, config -> {
-        final Handle[] installedHandles = copyOf(
+        final Handle[] installedHandles = Arrays.copyOf(
                          difference(
                            config.sourceHandles(),
                            config.diff().handles,
@@ -103,8 +103,7 @@ public final class InstallationDiffTests {
     throws IllegalAccessException,
            InvocationTargetException,
            NoSuchMethodException {
-    final Handle[] sourceHandles =
-      copyOf(Handle.SAMPLES, Handle.SAMPLES.length);
+    final Handle[] sourceHandles = copyOf(Handle.createSamples());
     final var indicesMatrix = new int[][]{
       new int[]{0},
       new int[]{sourceHandles.length / 2},

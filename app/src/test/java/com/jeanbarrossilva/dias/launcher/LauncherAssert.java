@@ -3,18 +3,35 @@ package com.jeanbarrossilva.dias.launcher;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractBooleanAssert;
 import org.assertj.core.api.ListAssert;
+import org.assertj.core.api.ObjectAssert;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.test.util.MethodAssert;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 
 import static com.jeanbarrossilva.dias.core.InstanceOfAssertFactories.listFromArray;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
+import static org.assertj.core.api.InstanceOfAssertFactories.list;
 
 public final class LauncherAssert
   extends AbstractAssert<LauncherAssert, Launcher> {
   private LauncherAssert(@NotNull final Launcher launcher) {
     super(launcher, LauncherAssert.class);
+  }
+
+  @NotNull
+  public ListAssert<Handle> handles() {
+    try {
+      return MethodAssert.assertThat(Launcher.class, "getHandles")
+                         .invoke(actual())
+                         .asInstanceOf(list(Handle.class));
+    } catch (final IllegalAccessException
+                 | InvocationTargetException
+                 | NoSuchMethodException cause) {
+      throw new RuntimeException(cause);
+    }
   }
 
   @NotNull
@@ -56,6 +73,27 @@ public final class LauncherAssert
   public LauncherAssert hasUnpinned(final String id) {
     assertThatIsPinned(id).isFalse();
     return this;
+  }
+
+  @NotNull
+  public ListAssert<Handle> search(@Nullable final String query) {
+    final SearchSession session = actual.startSearchSession();
+    final ListAssert<Handle> castResult;
+    try {
+      final ObjectAssert<Object> uncastResult =
+        MethodAssert.assertThat(SearchSession.class, "search", String.class)
+                    .invoke(session, query);
+      castResult = uncastResult.actual() == null
+        ? new ListAssert<>((List<Handle>) null)
+        : uncastResult.asInstanceOf(list(Handle.class));
+    } catch (final IllegalAccessException
+                 | InvocationTargetException
+                 | NoSuchMethodException cause) {
+      throw new RuntimeException(cause);
+    } finally {
+      actual.endSearchSession(session);
+    }
+    return castResult;
   }
 
   @NotNull

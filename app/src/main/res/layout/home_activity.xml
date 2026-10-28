@@ -5,7 +5,7 @@
   xmlns:tools="http://schemas.android.com/tools"
   android:layout_height="match_parent"
   android:layout_width="match_parent">
-  <com.jeanbarrossilva.dias.app.home.HandleListView
+  <com.jeanbarrossilva.dias.app.feature.home.HandleListView
     android:divider="@drawable/home_pinned_apps_divider"
     android:id="@+id/handleListView"
     android:layout_height="wrap_content"
@@ -16,14 +16,15 @@
 
   <com.google.android.material.button.MaterialButton
     android:backgroundTint="?colorPrimaryContainer"
+    android:contentDescription="@string/home_search"
     android:fontFamily="@font/space_grotesk"
+    app:icon="@drawable/ic_search"
     android:id="@+id/all_apps_button"
     android:layout_height="56dp"
     android:layout_width="56dp"
     android:layout_marginEnd="@dimen/spacing_m"
     android:layout_marginBottom="@dimen/spacing_m"
     android:paddingVertical="14dp"
-    android:visibility="gone"
     app:iconPadding="0dp"
     app:iconTint="?colorOnPrimaryContainer"
     android:insetBottom="0dp"
@@ -32,8 +33,5 @@
     android:insetTop="0dp"
     app:cornerRadius="8dp"
     app:layout_constraintBottom_toBottomOf="parent"
-    app:layout_constraintEnd_toEndOf="parent"
-    tools:contentDescription="@string/home_handle_list_expand"
-    tools:icon="@drawable/ic_expand_content"
-    tools:visibility="visible" />
+    app:layout_constraintEnd_toEndOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>

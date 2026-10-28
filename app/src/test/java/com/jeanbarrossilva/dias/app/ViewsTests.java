@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.app.home;
+package com.jeanbarrossilva.dias.app;
 
 import android.app.Activity;
 import android.graphics.RectF;
@@ -15,8 +15,8 @@ import java.util.concurrent.TimeoutException;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
-import static com.jeanbarrossilva.dias.app.home.Instrumentations.waitForSize;
-import static com.jeanbarrossilva.dias.app.home.Views.getBoundsInParent;
+import static com.jeanbarrossilva.dias.app.Instrumentations.waitForSize;
+import static com.jeanbarrossilva.dias.app.Views.getBoundsInParent;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @RunWith(Suite.class)

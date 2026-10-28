@@ -26,24 +26,13 @@ import static java.util.Objects.hash;
  */
 @SuppressWarnings("ClassCanBeRecord")
 public final class Handle implements Comparable<Handle> {
-  /** Handles for demonstration purposes. */
-  @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
-  public static final Handle[] SAMPLES =
-    ContiguousSet.closedOpen(0, 13)
-      .stream()
-      .map(
-        index -> new Handle(
-          /* packageName = */  "com.jeanbarrossilva.dias",
-          /* activityName = */ "com.jeanbarrossilva.dias.Activity"
-          + (index + 1),
-          /* label = */        "App " + (index + 1)
-        )
-      )
-      .toArray(Handle[]::new);
-
-  /** One of the {@link #SAMPLES}. */
+  /**
+   * A handle for demonstration purposes.
+   *
+   * @see #createSamples()
+   */
   @VisibleForTesting
-  static final Handle SAMPLE = SAMPLES[0];
+  static final Handle SAMPLE = createSamples()[0];
 
   /**
    * Identifier of this handle. Consists of this handle's associated
@@ -71,6 +60,21 @@ public final class Handle implements Comparable<Handle> {
   public Handle(final String id, final String label) {
     this.id = id;
     this.label = label;
+  }
+
+  /** Instantiates handles for demonstration purposes. */
+  public static Handle[] createSamples() {
+    return ContiguousSet.closedOpen(0, 13)
+      .stream()
+      .map(
+        index -> new Handle(
+          /* packageName = */  "com.jeanbarrossilva.dias",
+          /* activityName = */ "com.jeanbarrossilva.dias.Activity"
+          + (index + 1),
+          /* label = */        "App " + (index + 1)
+        )
+      )
+      .toArray(Handle[]::new);
   }
 
   /**
@@ -160,7 +164,11 @@ public final class Handle implements Comparable<Handle> {
     return label.compareTo(o.label);
   }
 
-  /** Instantiates the name of the activity associated to this handle. */
+  /**
+   * Instantiates the name of the activity associated to this handle.
+   *
+   * @see #SAMPLE
+   */
   @VisibleForTesting
   ComponentName name() {
     return ComponentName.unflattenFromString(id);

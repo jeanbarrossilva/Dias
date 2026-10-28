@@ -4,6 +4,7 @@ import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 
+import static com.jeanbarrossilva.dias.core.Arrays.copyOf;
 import static com.jeanbarrossilva.dias.core.Arrays.difference;
 import static com.jeanbarrossilva.dias.core.Arrays.intersection;
 import static com.jeanbarrossilva.dias.core.Arrays.isNullOrEmpty;
@@ -12,6 +13,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @RunWith(Enclosed.class)
 public final class ArraysTests {
+  public static final class CopyOfTests {
+    @Test
+    public void copies() {
+      final var self = new Integer[]{1, 2, 3};
+      assertThat(copyOf(self))
+        .isNotSameAs(self)
+        .containsExactly(self);
+    }
+  }
+
   public static final class DifferenceWithBinarySearchTests {
     @Test
     public void returnsNullWhenEitherArrayIsNull() {

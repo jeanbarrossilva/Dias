@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.app.home;
+package com.jeanbarrossilva.dias.app.feature.home;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.jeanbarrossilva.dias.app.ui.HandleView;
 import com.jeanbarrossilva.dias.launcher.Handle;
 import com.jeanbarrossilva.dias.launcher.Launcher;
 

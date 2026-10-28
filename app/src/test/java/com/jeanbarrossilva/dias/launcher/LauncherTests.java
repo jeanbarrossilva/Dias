@@ -1,13 +1,16 @@
 package com.jeanbarrossilva.dias.launcher;
 
+import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.core.IntHashSets;
 
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.springframework.test.util.MethodAssert;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -23,6 +26,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@RunWith(Enclosed.class)
 public class LauncherTests {
   @RunWith(RobolectricTestRunner.class)
   public static final class ClosingTests {
@@ -277,6 +281,41 @@ public class LauncherTests {
       MethodAssert.assertThat(AtomicReference.class, "get")
                   .invoke(pinningRef)
                   .isEqualTo(new Launcher.Pinning(IntHashSets.of(0, 1), false));
+      launcher.clear();
+      launcher.close();
+    }
+  }
+
+  @RunWith(RobolectricTestRunner.class)
+  public static final class SearchTests {
+    @Test
+    public void returnsNullWhenQueryIsNull() {
+      final Launcher launcher = Launcher.sample(getApplicationContext());
+      assertThat(launcher).search(null).isNull();
+    }
+
+    @Test
+    public void returnsViewToAllHandlesWhenQueryIsEmpty() {
+      final Launcher launcher = Launcher.sample(getApplicationContext());
+      assertThat(launcher).search("")
+                          .isInstanceOf(OneTimeCopyOnWriteArrayList.class)
+                          .containsExactlyElementsOf(launcher.getHandles());
+    }
+
+    @Test
+    public void searches() {
+      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final LauncherAssert launcherAssert = assertThat(launcher);
+      final ArrayList<Handle> expectedResults =
+        new ArrayList<>(/* initialCapacity = */ 10);
+      expectedResults.add(launcher.getHandles().getFirst());
+      expectedResults.addAll(launcher.getHandles().stream().skip(9).toList());
+      launcherAssert.handles()
+                    .hasSize(13)
+                    .extracting("label")
+                    .allMatch(label -> ((String) label).startsWith("App "));
+      launcherAssert.search("App 1")
+                    .containsExactlyElementsOf(expectedResults);
       launcher.clear();
       launcher.close();
     }
