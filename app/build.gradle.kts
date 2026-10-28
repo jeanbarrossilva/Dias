@@ -51,5 +51,6 @@ dependencies {
   testImplementation(libs.android.test)
   testImplementation(libs.assertJ)
   testImplementation(libs.jUnit4)
+  testImplementation(libs.mockito)
   testImplementation(libs.robolectric)
 }

@@ -19,11 +19,23 @@ package com.jeanbarrossilva.dias.core;
 
 import static java.lang.System.arraycopy;
 import static java.util.Arrays.binarySearch;
-import static java.util.Arrays.copyOf;
 
 /** Extensions for arrays. */
 public final class Arrays {
   private Arrays() {}
+
+  /**
+   * Copies the given array.
+   *
+   * @param <Element> An element of the array.
+   * @param self Array to be copied.
+   * @return A copy of the array.
+   * @throws NullPointerException If the array is {@code null}.
+   */
+  public static <Element> Element[] copyOf(final Element[] self)
+    throws NullPointerException {
+    return java.util.Arrays.copyOf(self, self.length);
+  }
 
   /**
    * Produces a trimmed copy of the difference between the two given arrays. The
@@ -53,7 +65,7 @@ public final class Arrays {
     final var untrimmedDiff = difference(self, other, length);
     return untrimmedDiff == null
       ? null
-      : copyOf(untrimmedDiff, /* length = */ length[0], type);
+      : java.util.Arrays.copyOf(untrimmedDiff, /* length = */ length[0], type);
   }
 
   /**
@@ -129,7 +141,7 @@ public final class Arrays {
       intersection(self, other, length);
     return untrimmedIntersection == null
       ? null
-      : copyOf(untrimmedIntersection, length[0], type);
+      : java.util.Arrays.copyOf(untrimmedIntersection, length[0], type);
   }
 
   /**
@@ -210,7 +222,7 @@ public final class Arrays {
     final Object[] typeErasedUnion = union(self, other);
     return typeErasedUnion == null
       ? null
-      : copyOf(typeErasedUnion, typeErasedUnion.length, type);
+      : java.util.Arrays.copyOf(typeErasedUnion, typeErasedUnion.length, type);
   }
 
   /**

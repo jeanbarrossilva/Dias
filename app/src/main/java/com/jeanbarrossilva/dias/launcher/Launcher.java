@@ -20,11 +20,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
 import java.lang.ref.WeakReference;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 import static androidx.room.Room.inMemoryDatabaseBuilder;
@@ -44,6 +46,7 @@ public final class Launcher implements Closeable {
   private final PinDatabase pinDatabase;
   private Handle[] handles;
   private final MutableObjectIntMap<String> indexing;
+  private final HashMap<UUID, SearchSession> searching;
   private Consumer<Pinning> onPinningListener;
 
   private static final Intent QUERY_INTENT = Handle.createQueryIntent();
@@ -156,6 +159,7 @@ public final class Launcher implements Closeable {
     for (int index = 0; index < handles.length; index++)
       this.indexing.put(handles[index].id, index);
     this.onPinningListener = null;
+    this.searching = new HashMap<>();
 
     this.installationChangeReceiver =
       new InstallationChangeReceiver(this.handles, diff -> {
@@ -180,6 +184,8 @@ public final class Launcher implements Closeable {
             );
           }
         }
+        for (final SearchSession searchSession: this.searching.values())
+          searchSession.sync(this.handles);
       });
     if (context != null)
       context.registerReceiver(
@@ -328,6 +334,37 @@ public final class Launcher implements Closeable {
   }
 
   /**
+   * Initiates a session that allows for searching for handles throughout this
+   * entire launcher. Many sessions can be started, with each being independent
+   * of the other.
+   * <p>
+   * To free resources, end the session after its use.
+   *
+   * @return The started session.
+   * @see #endSearchSession(SearchSession)
+   */
+  @NonNull
+  public SearchSession startSearchSession() {
+    final SearchSession result = new SearchSession();
+    result.sync(handles);
+    searching.put(result.id, result);
+    return result;
+  }
+
+  /**
+   * Terminates a search session that's been started and frees its resources.
+   *
+   * @param searchSession Session to end.
+   * @see #startSearchSession()
+   */
+  public void endSearchSession(final SearchSession searchSession) {
+    if (searchSession == null)
+      return;
+    searchSession.end();
+    searching.remove(searchSession.id);
+  }
+
+  /**
    * Listens to each effectful call to {@link #pin(String)} and
    * {@link #unpin(String)}, notifying the given listener about the handles that
    * were newly pinned/unpinned.
@@ -368,8 +405,11 @@ public final class Launcher implements Closeable {
   }
 
   /**
-   * Removes the on-pinning listener and closes the connection to the underlying
-   * database.
+   * Removes the on-pinning listener, closes the connection to the underlying
+   * database and ends all search sessions started in this launcher.
+   *
+   * @see #setOnPinningListener(Consumer)
+   * @see #startSearchSession()
    */
   @Override
   public void close() {
@@ -378,6 +418,8 @@ public final class Launcher implements Closeable {
     if (context != null)
       context.unregisterReceiver(installationChangeReceiver);
     onPinningListener = null;
+    for (final SearchSession searchSession: searching.values())
+      endSearchSession(searchSession);
   }
 
   /**
@@ -399,7 +441,7 @@ public final class Launcher implements Closeable {
       /* pinDatabase = */ inMemoryDatabaseBuilder(context, PinDatabase.class)
                             .allowMainThreadQueries()
                             .build(),
-                          Handle.SAMPLES
+                          Handle.createSamples()
     );
   }
 
