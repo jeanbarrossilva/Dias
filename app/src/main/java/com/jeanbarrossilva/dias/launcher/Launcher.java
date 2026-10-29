@@ -185,7 +185,7 @@ public final class Launcher implements Closeable {
           }
         }
         for (final SearchSession searchSession: this.searching.values())
-          searchSession.sync(this.handles);
+          searchSession.sync(diff);
       });
     if (context != null)
       context.registerReceiver(

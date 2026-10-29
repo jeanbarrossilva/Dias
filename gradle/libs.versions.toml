@@ -13,6 +13,7 @@ android-material = { group = 'com.google.android.material', name = 'material', v
 android-room-compiler = { group = 'androidx.room', name = 'room-compiler', version.ref = 'android-room' }
 android-room-runtime = { group = 'androidx.room', name = 'room-runtime', version.ref = 'android-room' }
 android-test = { group = 'androidx.test', name = 'core', version = '1.7.0' }
+apache-lucene = { group = 'org.apache.lucene', name = 'lucene-analysis-common', version = '10.5.2' }
 assertJ = { group = 'org.assertj', name = 'assertj-core', version = '3.27.7' }
 guava = { group = 'com.google.guava', name = 'guava', version = '33.7.1-android' }
 jUnit4 = { group = 'junit', name = 'junit', version = '4.13.2' }
