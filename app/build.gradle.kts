@@ -46,6 +46,7 @@ dependencies {
   implementation(libs.android.constraintLayout)
   implementation(libs.android.material)
   implementation(libs.android.room.runtime)
+  implementation(libs.apache.lucene)
   implementation(libs.guava)
   testImplementation(libs.android.espresso.intents)
   testImplementation(libs.android.test)
