@@ -357,7 +357,7 @@ public final class Launcher implements Closeable {
    * @param searchSession Session to end.
    * @see #startSearchSession()
    */
-  public void endSearchSession(final SearchSession searchSession) {
+  public void endSearchSession(@Nullable final SearchSession searchSession) {
     if (searchSession == null)
       return;
     searchSession.end();
