@@ -1,5 +1,6 @@
 [versions]
-android-gradle = '9.1.0-alpha08'
+android-appSearch = '1.1.0'
+android-gradle = '9.5.1'
 android-room = '2.8.5'
 android-sdk-compile = '36'
 java = '21'
@@ -7,6 +8,9 @@ java = '21'
 [libraries]
 agrona = { group = 'org.agrona', name = 'agrona', version = '2.6.1' }
 android-activity = { group = 'androidx.activity', name = 'activity', version = '1.13.0' }
+android-appSearch = { group = 'androidx.appsearch', name = 'appsearch', version.ref = 'android-appSearch' }
+android-appSearch-compiler = { group = 'androidx.appsearch', name = 'appsearch-compiler', version.ref = 'android-appSearch' }
+android-appSearch-localStorage = { group = 'androidx.appsearch', name = 'appsearch-local-storage', version.ref = 'android-appSearch' }
 android-constraintLayout = { group = 'androidx.constraintlayout', name = 'constraintlayout', version = '2.2.2' }
 android-espresso-intents = { group = 'androidx.test.espresso', name = 'espresso-intents', version = '3.7.0' }
 android-material = { group = 'com.google.android.material', name = 'material', version = '1.14.0' }
