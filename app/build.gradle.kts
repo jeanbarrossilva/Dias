@@ -40,9 +40,12 @@ android {
 }
 
 dependencies {
+  annotationProcessor(libs.android.appSearch.compiler)
   ksp(libs.android.room.compiler)
   implementation(libs.agrona)
   implementation(libs.android.activity)
+  implementation(libs.android.appSearch)
+  implementation(libs.android.appSearch.localStorage)
   implementation(libs.android.constraintLayout)
   implementation(libs.android.material)
   implementation(libs.android.room.runtime)

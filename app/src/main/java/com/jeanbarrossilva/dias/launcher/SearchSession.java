@@ -1,48 +1,39 @@
 package com.jeanbarrossilva.dias.launcher;
 
+import static androidx.appsearch.app.AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES;
+import static com.jeanbarrossilva.dias.core.ListenableFutures.toCompletableFuture;
+import static java.util.Arrays.stream;
+import static java.util.UUID.randomUUID;
+
+import android.content.Context;
 import android.icu.text.Normalizer2;
 
 import androidx.annotation.Nullable;
+import androidx.appsearch.annotation.Document;
+import androidx.appsearch.app.AppSearchSession;
+import androidx.appsearch.app.PutDocumentsRequest;
+import androidx.appsearch.app.RemoveByDocumentIdRequest;
+import androidx.appsearch.app.SearchResult;
+import androidx.appsearch.app.SearchResults;
+import androidx.appsearch.app.SearchSpec;
+import androidx.appsearch.app.SetSchemaRequest;
+import androidx.appsearch.exceptions.AppSearchException;
+import androidx.appsearch.localstorage.LocalStorage;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.launcher.installation.InstallationDiff;
 
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.BoostQuery;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.WildcardQuery;
-import org.apache.lucene.store.ByteBuffersDirectory;
-import org.apache.lucene.store.Directory;
-
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.function.IntFunction;
 
-import static java.util.UUID.randomUUID;
-
-/**
- * Session for searching for handles with text-based queries.
- *
- * @implNote The underlying implementation resorts to Apache Lucene, and doesn't
- *   store files on disk. Rather, the index lives on the heap, and is based on a
- *   byte buffer.
- */
+/** Session for searching for handles with text-based queries. */
 public final class SearchSession {
   /**
    * Unique identifier of this session. Allows the launcher to index this
@@ -54,27 +45,75 @@ public final class SearchSession {
    */
   final UUID id;
 
-  private final Directory directory;
-  private final IndexWriter writer;
+  private final ListenableFuture<AppSearchSession> delegateFuture;
   private Handle[] handles;
 
-  private static final String FIELD_ID = "id";
-  private static final String FIELD_UNTOKENIZED_LABEL = "untokenized_label";
-  private static final String FIELD_TOKENIZED_LABEL = "tokenized_label";
-  private static final String FIELD_POSITION = "position";
+  private static final Runnable NO_OP = () -> {};
+  private static final SearchSpec SPEC = new SearchSpec.Builder()
+    .addFilterNamespaces(HandleDocument.NAMESPACE)
+    .setResultCountPerPage(10000)
+    .build();
+  private static final SetSchemaRequest SET_SCHEMA_REQUEST;
 
-  SearchSession() {
+  static {
     try {
-      final var writerConfig = new IndexWriterConfig();
-      writerConfig.setCommitOnClose(false);
-      this.id = randomUUID();
-      this.directory = new ByteBuffersDirectory();
-      this.writer = new IndexWriter(directory, writerConfig);
-      this.writer.commit();
-      this.handles = null;
-    } catch (final IOException cause) {
+      SET_SCHEMA_REQUEST = new SetSchemaRequest.Builder()
+        .addDocumentClasses(HandleDocument.class)
+        .build();
+    } catch (final AppSearchException cause) {
       throw new RuntimeException(cause);
     }
+  }
+
+  @Document
+  @SuppressWarnings("ClassCanBeRecord")
+  static final class HandleDocument {
+    @Document.Namespace
+    public final String namespace;
+
+    @Document.Id
+    public final String id;
+
+    @Document.StringProperty
+    public final String exactLabel;
+
+    @Document.StringProperty(indexingType = INDEXING_TYPE_PREFIXES)
+    public final String normalizedLabel;
+
+    private static final String NAMESPACE = "dias";
+
+    public HandleDocument(final Handle handle) {
+      this(NAMESPACE, handle.id, handle.label, normalize(handle.label));
+    }
+
+    public HandleDocument(
+      final String namespace,
+      final String id,
+      final String exactLabel,
+      final String normalizedLabel
+    ) {
+      this.namespace = namespace;
+      this.id = id;
+      this.exactLabel = exactLabel;
+      this.normalizedLabel = normalizedLabel;
+    }
+
+    public Handle toHandle() {
+      return new Handle(id, exactLabel);
+    }
+
+    public static String normalize(final String exactLabel) {
+      return Normalizer2.getNFKCInstance()
+        .normalize(exactLabel)
+        .toLowerCase(Locale.ROOT);
+    }
+  }
+
+  SearchSession(final Context context, final String indexName) {
+    final LocalStorage.SearchContext searchContext =
+      new LocalStorage.SearchContext.Builder(context, indexName).build();
+    this.id = randomUUID();
+    this.delegateFuture = LocalStorage.createSearchSessionAsync(searchContext);
   }
 
   /**
@@ -97,21 +136,24 @@ public final class SearchSession {
                                        handles,
         /* isImmutableTreeSetLike = */ true
       );
-    try(final IndexReader reader = DirectoryReader.open(writer)) {
-      final IndexSearcher searcher = new IndexSearcher(reader);
-      final ScoreDoc[] scoreDocuments =
-        searcher.search(query(query), Integer.MAX_VALUE).scoreDocs;
-      final var result = new ArrayList<Handle>(scoreDocuments.length);
-      for (final ScoreDoc scoreDocument: scoreDocuments)
-        result.add(handles[reader.storedFields()
-                                 .document(scoreDocument.doc)
-                                 .getField(FIELD_POSITION)
-                                 .numericValue()
-                                 .intValue()]);
-      return result;
-    } catch (final IOException cause) {
-      throw new RuntimeException(cause);
-    }
+    final String normalizedQuery = HandleDocument.normalize(query);
+    final SearchResults resource = getDelegate().search(normalizedQuery, SPEC);
+    final List<SearchResult> page = await(resource.getNextPageAsync());
+    final List<Handle> result = page
+      .stream()
+      .map(searchResult -> {
+        try {
+          return searchResult
+            .getGenericDocument()
+            .toDocumentClass(HandleDocument.class)
+            .toHandle();
+        } catch (final AppSearchException cause) {
+          throw new RuntimeException(cause);
+        }
+      })
+        .toList();
+    resource.close();
+    return result;
   }
 
   /**
@@ -123,117 +165,122 @@ public final class SearchSession {
    * <p>
    * For syncing due to changes on handles that have already been synced, and
    * considering only the what's been changed on them, call
-   * {@link #sync(InstallationDiff)} instead.
+   * {@link #sync(InstallationDiff, Handle[])} instead.
    *
    * @param handles All handles in the launcher.
    */
   void sync(final Handle[] handles) {
-    try {
-      this.handles = handles;
-      writer.prepareCommit();
-      writer.deleteAll();
-      for (int position = 0; position < handles.length; position++)
-        writer.addDocument(toDocument(handles[position], position));
-      writer.commit();
-    } catch (final IOException cause) {
-      throw new RuntimeException(cause);
-    }
+    final AppSearchSession delegate = getDelegate();
+    clear(delegate);
+    this.handles = handles;
+    awaitAll(
+      stream(handles)
+        .map(handle -> putDocumentAsync(delegate, handle))
+        .toArray(CompletableFuture[]::new)
+    );
   }
 
   /**
-   * Synchronizes the index according to the given diff. Instead of taking an
-   * entire array of handles into account (as does {@link #sync(Handle[])}),
-   * only the change to the handles given to this session last will be synced.
+   * Synchronizes the index according to the given diff. Instead of iterating
+   * over an entire array of handles (as does {@link #sync(Handle[])}), only the
+   * change to the handles given to this session last will be synced.
    *
    * @param diff Change to the handles provided to the last call to
    *   {@link #sync(Handle[])} to be synced with this session.
+   * @param handles Result of having merged the diff with the handles with which
+   *   this session was last synced.
    */
-  void sync(final InstallationDiff diff) {
-    try {
-      handles = diff.merge(handles);
-      writer.prepareCommit();
+  void sync(final InstallationDiff diff, final Handle[] handles) {
+    final AppSearchSession delegate = getDelegate();
+    final IntFunction<CompletableFuture<Void>> synchronizer =
       switch (diff.kind) {
-        case INSTALLATION:
-          for (int j = 0; j < diff.handles.length; j++)
-            writer.addDocument(toDocument(diff.handles[j], diff.indices[j]));
-          break;
-        case REPLACEMENT:
-          for (int j = 0; j < diff.handles.length; j++)
-            writer.updateDocument(
-              toTerm(diff.handles[j]),
-              toDocument(diff.handles[j], diff.indices[j])
-            );
-          break;
-        case UNINSTALLATION:
-          final var terms = new Term[diff.handles.length];
-          for (int j = 0; j < terms.length; j++)
-            terms[j] = toTerm(diff.handles[j]);
-          writer.deleteDocuments(terms);
-          break;
-      }
-      writer.commit();
-    } catch (final IOException cause) {
-      throw new RuntimeException(cause);
-    }
+        case INSTALLATION ->
+          index -> putDocumentAsync(delegate, this.handles[index]);
+        case REPLACEMENT ->
+          index -> updateDocumentAsync(delegate, this.handles[index]);
+        case UNINSTALLATION ->
+          index -> removeDocumentAsync(delegate, this.handles[index]);
+      };
+    this.handles = handles;
+    awaitAll(
+      stream(diff.indices)
+        .parallel()
+        .mapToObj(synchronizer)
+        .toArray(CompletableFuture[]::new)
+    );
   }
 
   void end() {
+    final AppSearchSession delegate = getDelegate();
+    clear(delegate);
+    delegate.close();
+  }
+
+  private AppSearchSession getDelegate() {
+    final boolean wasDone = delegateFuture.isDone();
+    final AppSearchSession delegate = await(delegateFuture);
+    if (!wasDone)
+      await(delegate.setSchemaAsync(SET_SCHEMA_REQUEST));
+    return delegate;
+  }
+
+  private void clear(final AppSearchSession delegate) {
+    if (handles == null)
+      return;
+    awaitAll(
+      stream(this.handles)
+        .map(handle -> removeDocumentAsync(delegate, handle))
+        .toArray(CompletableFuture[]::new)
+    );
+  }
+
+  private static <Value> Value await(final Future<Value> future) {
     try {
-      writer.prepareCommit();
-      writer.deleteAll();
-      writer.commit();
-      writer.close();
-      directory.close();
-    } catch (final IOException cause) {
+      return future.get();
+    } catch (final CancellationException
+                 | ExecutionException
+                 | InterruptedException cause) {
       throw new RuntimeException(cause);
     }
   }
 
-  private static Query query(final String text) {
-    final var builder = new BooleanQuery.Builder();
-    final String normalizedText = normalize(text);
-    builder.add(
-      new BoostQuery(
-        new TermQuery(new Term(FIELD_UNTOKENIZED_LABEL, normalizedText)),
-        1.0f
-      ),
-      BooleanClause.Occur.SHOULD
-    );
-    for (final String word: text.split(" ")) {
-      if (word.isBlank())
-        continue;
-      final String escapedWord = word
-        .replace("*", "\\*")
-        .replace("?", "\\?")
-        .replace("\\", "\\\\");
-      builder.add(
-        new WildcardQuery(
-          new Term(FIELD_TOKENIZED_LABEL, '*' + escapedWord + '*')
-        ),
-        BooleanClause.Occur.SHOULD
-      );
+  @SuppressWarnings("rawtypes")
+  private static void awaitAll(final CompletableFuture[] futures) {
+    CompletableFuture.allOf(futures).join();
+  }
+
+  private static CompletableFuture<Void> updateDocumentAsync(
+    final AppSearchSession delegate,
+    final Handle handle
+  ) {
+    return removeDocumentAsync(delegate, handle)
+      .thenCompose(theVoid -> putDocumentAsync(delegate, handle));
+  }
+
+  private static CompletableFuture<Void> putDocumentAsync(
+    final AppSearchSession delegate,
+    final Handle handle
+  ) {
+    try {
+      final var document = new HandleDocument(handle);
+      final PutDocumentsRequest request =
+        new PutDocumentsRequest.Builder()
+          .addDocuments(document)
+          .build();
+      return toCompletableFuture(delegate.putAsync(request)).thenRun(NO_OP);
+    } catch (final AppSearchException cause) {
+      throw new RuntimeException(cause);
     }
-    return builder.build();
   }
 
-  private static Term toTerm(final Handle handle) {
-    return new Term(FIELD_ID, handle.id);
-  }
-
-  private static Document toDocument(final Handle handle, final int position) {
-    final var result = new Document();
-    final String label = normalize(handle.label);
-    for (final IndexableField field: new IndexableField[]{
-      new StringField(FIELD_ID, handle.id, Field.Store.YES),
-      new StringField(FIELD_UNTOKENIZED_LABEL, label, Field.Store.YES),
-      new TextField(FIELD_TOKENIZED_LABEL, label, Field.Store.NO),
-      new StoredField(FIELD_POSITION, position)
-    })
-      result.add(field);
-    return result;
-  }
-
-  private static String normalize(final String text) {
-    return Normalizer2.getNFKDInstance().normalize(text);
+  private static CompletableFuture<Void> removeDocumentAsync(
+    final AppSearchSession delegate,
+    final Handle handle
+  ) {
+    final RemoveByDocumentIdRequest request =
+      new RemoveByDocumentIdRequest.Builder(HandleDocument.NAMESPACE)
+        .addIds(handle.id)
+        .build();
+    return toCompletableFuture(delegate.removeAsync(request)).thenRun(NO_OP);
   }
 }

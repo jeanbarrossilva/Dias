@@ -21,9 +21,10 @@ public class DiasApplication extends Application {
     lifecycleState = Lifecycle.State.CREATED;
     launcher = new Launcher(
       this,
-      inMemoryDatabaseBuilder(this, PinDatabase.class)
-        .allowMainThreadQueries()
-        .build()
+      /* pinDatabase = */     inMemoryDatabaseBuilder(this, PinDatabase.class)
+                                .allowMainThreadQueries()
+                                .build(),
+      /* searchIndexName = */ "launcher-search-index"
     );
   }
 

@@ -44,6 +44,7 @@ public final class Launcher implements Closeable {
   private final WeakReference<Context> contextRef;
   private final InstallationChangeReceiver installationChangeReceiver;
   private final PinDatabase pinDatabase;
+  private final String searchIndexName;
   private Handle[] handles;
   private final MutableObjectIntMap<String> indexing;
   private final HashMap<UUID, SearchSession> searching;
@@ -120,13 +121,22 @@ public final class Launcher implements Closeable {
    * @param context Context through which information about installed
    *   applications are queried and parsed into handles.
    * @param pinDatabase Database for persisting pinned handles.
-   * @throws NullPointerException If the database is {@code null}.
+   * @param searchIndexName Name of the index in which info about each handle,
+   *   tailored for a session, is persisted.
+   * @see #startSearchSession()
+   * @throws NullPointerException If the pin database or the name of the
+   *   database for search is {@code null}.
    */
-  public Launcher(final Context context, final PinDatabase pinDatabase)
+  public Launcher(
+    final Context context,
+    final PinDatabase pinDatabase,
+    final String searchIndexName
+  )
     throws NullPointerException {
     this(
       context,
       pinDatabase,
+      searchIndexName,
       context == null || context.getPackageManager() == null
         ? new Handle[0]
         : Handle
@@ -141,19 +151,26 @@ public final class Launcher implements Closeable {
    *
    * @param context Context to register the installation change receiver to.
    * @param pinDatabase Database for persisting pinned handles.
+   * @param searchIndexName Name of the index in which info about each handle,
+   *   tailored for a session, is persisted.
    * @param handles Unique handles to all applications visible to the user,
    *  sorted by label.
-   * @throws NullPointerException If the database is {@code null}.
+   * @see #startSearchSession()
+   * @throws NullPointerException If the pin database or the name of the
+   *   database for search is {@code null}.
    */
+  @SuppressWarnings("KotlinInternalInJava")
   @VisibleForTesting
   public Launcher(
     final Context context,
     final PinDatabase pinDatabase,
+    final String searchIndexName,
     final Handle[] handles
   )
     throws NullPointerException {
     this.contextRef = new WeakReference<>(context);
     this.pinDatabase = requireNonNull(pinDatabase, "pinDatabase");
+    this.searchIndexName = requireNonNull(searchIndexName, "searchIndexName");
     this.handles = handles;
     this.indexing = new MutableObjectIntMap<>(handles.length);
     for (int index = 0; index < handles.length; index++)
@@ -185,7 +202,7 @@ public final class Launcher implements Closeable {
           }
         }
         for (final SearchSession searchSession: this.searching.values())
-          searchSession.sync(diff);
+          searchSession.sync(diff, this.handles);
       });
     if (context != null)
       context.registerReceiver(
@@ -340,12 +357,16 @@ public final class Launcher implements Closeable {
    * <p>
    * To free resources, end the session after its use.
    *
-   * @return The started session.
+   * @return The started session, or {@code null} if the context has been
+   *   garbage-collected.
    * @see #endSearchSession(SearchSession)
    */
-  @NonNull
+  @Nullable
   public SearchSession startSearchSession() {
-    final SearchSession result = new SearchSession();
+    final Context context = contextRef.get();
+    if (context == null)
+      return null;
+    final SearchSession result = new SearchSession(context, searchIndexName);
     result.sync(handles);
     searching.put(result.id, result);
     return result;
@@ -437,11 +458,15 @@ public final class Launcher implements Closeable {
   public static Launcher sample(final Context context)
     throws NullPointerException {
     return new Launcher(
-                          context,
-      /* pinDatabase = */ inMemoryDatabaseBuilder(context, PinDatabase.class)
-                            .allowMainThreadQueries()
-                            .build(),
-                          Handle.createSamples()
+                              context,
+      /* pinDatabase = */     inMemoryDatabaseBuilder(
+                                context,
+                                PinDatabase.class
+                              )
+                                .allowMainThreadQueries()
+                                .build(),
+      /* searchIndexName = */ "sample-launcher-index",
+                              Handle.createSamples()
     );
   }
 
