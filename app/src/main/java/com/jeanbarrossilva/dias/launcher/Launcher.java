@@ -34,6 +34,7 @@ import static com.jeanbarrossilva.dias.core.Arrays.intersection;
 import static java.util.Arrays.stream;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 
 /**
  * View of both the homescreen and the drawer. Although they're shown separately
@@ -51,6 +52,8 @@ public final class Launcher implements Closeable {
   private Consumer<Pinning> onPinningListener;
 
   private static final Intent QUERY_INTENT = Handle.createQueryIntent();
+  private static final String SAMPLE_SEARCH_INDEX_NAME =
+    "sample-launcher-search-index-" + randomUUID();
 
   /**
    * Exception thrown whenever handles that don't belong to a launcher are
@@ -123,9 +126,9 @@ public final class Launcher implements Closeable {
    * @param pinDatabase Database for persisting pinned handles.
    * @param searchIndexName Name of the index in which info about each handle,
    *   tailored for a session, is persisted.
-   * @see #startSearchSession()
-   * @throws NullPointerException If the pin database or the name of the
-   *   database for search is {@code null}.
+   * @see SearchSession
+   * @throws NullPointerException If the pin database or the name of the search
+   *   index is {@code null}.
    */
   public Launcher(
     final Context context,
@@ -146,19 +149,6 @@ public final class Launcher implements Closeable {
     );
   }
 
-  /**
-   * Instantiates a launcher containing the given handles, all unpinned.
-   *
-   * @param context Context to register the installation change receiver to.
-   * @param pinDatabase Database for persisting pinned handles.
-   * @param searchIndexName Name of the index in which info about each handle,
-   *   tailored for a session, is persisted.
-   * @param handles Unique handles to all applications visible to the user,
-   *  sorted by label.
-   * @see #startSearchSession()
-   * @throws NullPointerException If the pin database or the name of the
-   *   database for search is {@code null}.
-   */
   @SuppressWarnings("KotlinInternalInJava")
   @VisibleForTesting
   public Launcher(
@@ -170,7 +160,7 @@ public final class Launcher implements Closeable {
     throws NullPointerException {
     this.contextRef = new WeakReference<>(context);
     this.pinDatabase = requireNonNull(pinDatabase, "pinDatabase");
-    this.searchIndexName = requireNonNull(searchIndexName, "searchIndexName");
+    this.searchIndexName = searchIndexName;
     this.handles = handles;
     this.indexing = new MutableObjectIntMap<>(handles.length);
     for (int index = 0; index < handles.length; index++)
@@ -358,11 +348,11 @@ public final class Launcher implements Closeable {
    * To free resources, end the session after its use.
    *
    * @return The started session, or {@code null} if the context has been
-   *   garbage-collected.
+   *   garbage-collected or is null.
    * @see #endSearchSession(SearchSession)
    */
   @Nullable
-  public SearchSession startSearchSession() {
+  public SearchSession startSearchSession() throws NullPointerException {
     final Context context = contextRef.get();
     if (context == null)
       return null;
@@ -377,11 +367,15 @@ public final class Launcher implements Closeable {
    *
    * @param searchSession Session to end.
    * @see #startSearchSession()
+   * @throws NullPointerException If the context has been garbage-collected or
+   *   is {@code null}.
    */
-  public void endSearchSession(@Nullable final SearchSession searchSession) {
+  public void endSearchSession(@Nullable final SearchSession searchSession)
+    throws NullPointerException {
     if (searchSession == null)
       return;
-    searchSession.end();
+    final Context context = contextRef.get();
+    searchSession.end(context);
     searching.remove(searchSession.id);
   }
 
@@ -452,21 +446,19 @@ public final class Launcher implements Closeable {
    *
    * @param context Context for the underlying in-memory database.
    * @see Handle#launch(Context)
-   * @throws NullPointerException If the context is {@code null}.
+   * @throws NullPointerException If the context has been garbage-collected or
+   *   is {@code null}.
    */
   @NonNull
-  public static Launcher sample(final Context context)
+  public static Launcher sample(@NonNull final Context context)
     throws NullPointerException {
     return new Launcher(
-                              context,
-      /* pinDatabase = */     inMemoryDatabaseBuilder(
-                                context,
-                                PinDatabase.class
-                              )
-                                .allowMainThreadQueries()
-                                .build(),
-      /* searchIndexName = */ "sample-launcher-index",
-                              Handle.createSamples()
+                          context,
+      /* pinDatabase = */ inMemoryDatabaseBuilder(context, PinDatabase.class)
+                            .allowMainThreadQueries()
+                            .build(),
+                          SAMPLE_SEARCH_INDEX_NAME,
+                          Handle.createSamples()
     );
   }
 
