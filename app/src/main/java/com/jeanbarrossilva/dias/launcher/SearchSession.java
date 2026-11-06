@@ -1,15 +1,18 @@
 package com.jeanbarrossilva.dias.launcher;
 
+import static androidx.appsearch.app.AppSearchEnvironmentFactory.getEnvironmentInstance;
 import static androidx.appsearch.app.AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES;
 import static com.jeanbarrossilva.dias.core.ListenableFutures.toCompletableFuture;
 import static java.util.Arrays.stream;
 import static java.util.UUID.randomUUID;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.icu.text.Normalizer2;
 
 import androidx.annotation.Nullable;
 import androidx.appsearch.annotation.Document;
+import androidx.appsearch.app.AppSearchEnvironment;
 import androidx.appsearch.app.AppSearchSession;
 import androidx.appsearch.app.PutDocumentsRequest;
 import androidx.appsearch.app.RemoveByDocumentIdRequest;
@@ -20,7 +23,6 @@ import androidx.appsearch.app.SetSchemaRequest;
 import androidx.appsearch.exceptions.AppSearchException;
 import androidx.appsearch.localstorage.LocalStorage;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.launcher.installation.InstallationDiff;
 
@@ -33,7 +35,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.IntFunction;
 
-/** Session for searching for handles with text-based queries. */
+/**
+ * Session for searching for handles with text-based queries.
+ *
+ * @see #search(String)
+ */
 public final class SearchSession {
   /**
    * Unique identifier of this session. Allows the launcher to index this
@@ -45,7 +51,7 @@ public final class SearchSession {
    */
   final UUID id;
 
-  private final ListenableFuture<AppSearchSession> delegateFuture;
+  private final Future<AppSearchSession> delegateFuture;
   private Handle[] handles;
 
   private static final Runnable NO_OP = () -> {};
@@ -109,7 +115,8 @@ public final class SearchSession {
     }
   }
 
-  SearchSession(final Context context, final String indexName) {
+  SearchSession(final Context context, final String indexName)
+    throws NullPointerException {
     final LocalStorage.SearchContext searchContext =
       new LocalStorage.SearchContext.Builder(context, indexName).build();
     this.id = randomUUID();
@@ -178,6 +185,7 @@ public final class SearchSession {
         .map(handle -> putDocumentAsync(delegate, handle))
         .toArray(CompletableFuture[]::new)
     );
+    await(delegate.requestFlushAsync());
   }
 
   /**
@@ -191,6 +199,9 @@ public final class SearchSession {
    *   this session was last synced.
    */
   void sync(final InstallationDiff diff, final Handle[] handles) {
+    this.handles = handles;
+    if (diff.indices.length == 0)
+      return;
     final AppSearchSession delegate = getDelegate();
     final IntFunction<CompletableFuture<Void>> synchronizer =
       switch (diff.kind) {
@@ -201,19 +212,25 @@ public final class SearchSession {
         case UNINSTALLATION ->
           index -> removeDocumentAsync(delegate, this.handles[index]);
       };
-    this.handles = handles;
     awaitAll(
       stream(diff.indices)
         .parallel()
         .mapToObj(synchronizer)
         .toArray(CompletableFuture[]::new)
     );
+    await(delegate.requestFlushAsync());
   }
 
-  void end() {
+  @SuppressLint("RestrictedApi")
+  @SuppressWarnings("ResultOfMethodCallIgnored")
+  void end(final Context context) {
+    final AppSearchEnvironment environment = getEnvironmentInstance();
     final AppSearchSession delegate = getDelegate();
     clear(delegate);
+    await(delegate.requestFlushAsync());
     delegate.close();
+    if (context != null)
+      environment.getAppSearchDir(context, /* userHandle = */ null).delete();
   }
 
   private AppSearchSession getDelegate() {
