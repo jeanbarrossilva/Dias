@@ -2,7 +2,6 @@
 <androidx.constraintlayout.widget.ConstraintLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:app="http://schemas.android.com/apk/res-auto"
-  xmlns:tools="http://schemas.android.com/tools"
   android:layout_height="match_parent"
   android:layout_width="match_parent">
   <com.jeanbarrossilva.dias.app.feature.home.HandleListView
@@ -14,24 +13,14 @@
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintTop_toTopOf="parent" />
 
-  <com.google.android.material.button.MaterialButton
-    android:backgroundTint="?colorPrimaryContainer"
+  <ImageButton
     android:contentDescription="@string/home_search"
-    android:fontFamily="@font/space_grotesk"
-    app:icon="@drawable/ic_search"
-    android:id="@+id/all_apps_button"
+    android:id="@+id/searchButton"
     android:layout_height="56dp"
     android:layout_width="56dp"
     android:layout_marginEnd="@dimen/spacing_m"
     android:layout_marginBottom="@dimen/spacing_m"
-    android:paddingVertical="14dp"
-    app:iconPadding="0dp"
-    app:iconTint="?colorOnPrimaryContainer"
-    android:insetBottom="0dp"
-    android:insetLeft="0dp"
-    android:insetRight="0dp"
-    android:insetTop="0dp"
-    app:cornerRadius="8dp"
+    android:src="@drawable/ic_search"
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintEnd_toEndOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>

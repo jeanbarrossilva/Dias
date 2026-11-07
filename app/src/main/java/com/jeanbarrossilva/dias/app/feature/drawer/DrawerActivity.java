@@ -6,6 +6,7 @@ import android.os.Bundle;
 import androidx.annotation.Nullable;
 
 import com.jeanbarrossilva.dias.app.Dias;
+import com.jeanbarrossilva.dias.app.util.SafeAreaListener;
 import com.jeanbarrossilva.dias.databinding.DrawerActivityBinding;
 import com.jeanbarrossilva.dias.launcher.Handle;
 import com.jeanbarrossilva.dias.launcher.Launcher;
@@ -16,11 +17,7 @@ import java.util.List;
 import kotlin.Unit;
 
 import static android.view.WindowInsets.Type.ime;
-import static android.view.WindowInsets.Type.navigationBars;
-import static android.view.WindowInsets.Type.statusBars;
-import static androidx.core.view.ViewKt.doOnLayout;
 import static androidx.core.widget.TextViewKt.doOnTextChanged;
-import static com.jeanbarrossilva.dias.app.Views.push;
 
 public final class DrawerActivity extends Activity {
   SearchSession searchSession;
@@ -52,27 +49,15 @@ public final class DrawerActivity extends Activity {
   private void setUpAppList(final Launcher launcher) {
     binding
       .appListView
-      .setOnApplyWindowInsetsListener((view, windowInsets) -> {
-        doOnLayout(view, laidOutView -> {
-          push(laidOutView, windowInsets.getInsets(statusBars()));
-          return Unit.INSTANCE;
-        });
-        return windowInsets;
-      });
+      .setOnApplyWindowInsetsListener(SafeAreaListener.statusBars);
     binding.appListView.setAdapter(launcher.getHandles());
   }
 
   @SuppressWarnings({"DataFlowIssue", "resource"})
   private void setUpSearchField() {
     binding
-      .searchFieldLayout
-      .setOnApplyWindowInsetsListener((layout, windowInsets) -> {
-        doOnLayout(layout, laidOutLayout -> {
-          push(laidOutLayout, windowInsets.getInsets(navigationBars()));
-          return Unit.INSTANCE;
-        });
-        return windowInsets;
-      });
+      .searchField
+      .setOnApplyWindowInsetsListener(SafeAreaListener.navigationBars);
     doOnTextChanged(binding.searchField, (text, start, before, count) -> {
       if (searchSession == null)
         searchSession = requireLauncher().startSearchSession();

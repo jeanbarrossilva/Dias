@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
+import com.jeanbarrossilva.dias.app.util.SafeAreaListener;
 import com.jeanbarrossilva.dias.app.feature.drawer.DrawerActivity;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
 import com.jeanbarrossilva.dias.launcher.Launcher;
@@ -36,10 +37,11 @@ public class HomeActivity extends Activity {
   }
 
   private void setUpNavigationToDrawer() {
-    binding.allAppsButton.setOnClickListener(allAppsButton -> {
-      final Context context = either(allAppsButton.getContext(), this);
-      if (context == null)
-        return;
+    binding
+      .searchButton
+      .setOnApplyWindowInsetsListener(SafeAreaListener.navigationBars);
+    binding.searchButton.setOnClickListener(button -> {
+      final Context context = either(button.getContext(), this);
       final Intent intent =
         new Intent().setClass(context, DrawerActivity.class);
       context.startActivity(intent);

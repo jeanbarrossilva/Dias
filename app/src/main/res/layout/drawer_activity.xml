@@ -7,7 +7,7 @@
   <FrameLayout
     android:layout_height="0dp"
     android:layout_width="match_parent"
-    app:layout_constraintBottom_toTopOf="@id/search_field_layout"
+    app:layout_constraintBottom_toTopOf="@id/searchField"
     app:layout_constraintTop_toTopOf="parent">
     <com.jeanbarrossilva.dias.app.ui.AppListView
       android:fadingEdgeLength="128dp"
@@ -18,25 +18,14 @@
       android:requiresFadingEdge="vertical" />
   </FrameLayout>
 
-  <com.google.android.material.textfield.TextInputLayout
-    android:id="@+id/search_field_layout"
-    android:layout_height="wrap_content"
-    android:layout_width="match_parent"
-    android:layout_marginHorizontal="12dp"
-    android:layout_marginBottom="12dp"
+  <EditText
     android:hint="@string/drawer_search_hint"
-    app:boxCornerRadiusBottomEnd="16dp"
-    app:boxCornerRadiusBottomStart="16dp"
-    app:boxCornerRadiusTopEnd="16dp"
-    app:boxCornerRadiusTopStart="16dp"
-    app:boxStrokeColor="@android:color/transparent"
-    app:boxStrokeWidth="0dp"
-    app:layout_constraintBottom_toBottomOf="parent">
-    <com.google.android.material.textfield.TextInputEditText
-      android:backgroundTint="?colorPrimaryContainer"
-      android:fontFamily="@font/space_grotesk"
-      android:id="@+id/search_field"
-      android:layout_height="wrap_content"
-      android:layout_width="match_parent" />
-  </com.google.android.material.textfield.TextInputLayout>
+    android:id="@+id/searchField"
+    android:importantForAutofill="no"
+    android:inputType="textFilter"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    android:layout_marginHorizontal="12dp"
+    app:layout_constraintBottom_toBottomOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
