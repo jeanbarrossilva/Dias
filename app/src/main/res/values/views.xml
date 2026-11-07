@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style
+    name="Theme.Dias.View.EditText"
+    parent="Widget.AppCompat.EditText">
+    <item name="android:background">@drawable/theme_surface</item>
+    <item name="android:fontFamily">@font/space_grotesk</item>
+    <item name="android:padding">16dp</item>
+    <item name="android:textAppearance">?textAppearanceBody1</item>
+  </style>
+
+  <style
+    name="Theme.Dias.View.ImageButton"
+    parent="Widget.AppCompat.ImageButton">
+    <item name="android:background">@drawable/theme_surface</item>
+  </style>
+</resources>

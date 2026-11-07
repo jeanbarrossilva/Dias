@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.app;
+package com.jeanbarrossilva.dias.app.util;
 
 import android.app.Instrumentation;
 import android.view.View;

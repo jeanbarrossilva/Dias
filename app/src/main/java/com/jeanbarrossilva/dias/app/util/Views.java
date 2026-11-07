@@ -1,26 +1,11 @@
-package com.jeanbarrossilva.dias.app;
+package com.jeanbarrossilva.dias.app.util;
 
-import android.graphics.Insets;
 import android.graphics.RectF;
 import android.view.View;
 
 /** Extensions for {@link View}s. */
 public final class Views {
   private Views() {}
-
-  /**
-   * Moves the view away from the given insets.
-   *
-   * @param self The view to be pushed away from the insets.
-   * @param insets Insets that may be obstructed by the view, away from which
-   *   the view may be pushed.
-   */
-  public static void push(final View self, final Insets insets) {
-    if (self == null || insets == null)
-      return;
-    self.setTranslationX(insets.left - insets.right);
-    self.setTranslationY(insets.top - insets.bottom);
-  }
 
   /**
    * Updates the given rectangle to the position and the size of the view
