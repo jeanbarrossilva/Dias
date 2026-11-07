@@ -19,18 +19,6 @@
     <activity
       android:exported="true"
       android:name=".app.feature.drawer.DrawerActivity" />
-
-    <receiver
-      android:exported="true"
-      android:name=".launcher.installation.InstallationChangeReceiver">
-      <intent-filter>
-        <action android:name="android.intent.action.PACKAGE_ADDED" />
-        <action android:name="android.intent.action.PACKAGE_CHANGED" />
-        <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
-        <action android:name="android.intent.action.PACKAGE_REMOVED" />
-        <action android:name="android.intent.action.PACKAGE_REPLACED" />
-      </intent-filter>
-    </receiver>
   </application>
 
   <queries />
