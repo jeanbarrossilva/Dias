@@ -1,0 +1,22 @@
+package com.jeanbarrossilva.dias.launcher.util;
+
+import org.agrona.collections.IntHashSet;
+
+/** Extensions for {@link IntHashSet}s. */
+public class IntHashSets {
+  private IntHashSets() {}
+
+  /**
+   * Instantiates a set containing the given integers.
+   *
+   * @param values Integers to be in the set.
+   */
+  public static IntHashSet of(final int ...values) {
+    if (values == null)
+      return null;
+    final var self = new IntHashSet(/* proposedCapacity = */ values.length);
+    for (final int value: values)
+      self.add(value);
+    return self;
+  }
+}
