@@ -17,6 +17,7 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.jeanbarrossilva.dias.app.util.Instrumentations.waitForSize;
 import static com.jeanbarrossilva.dias.app.util.Views.getBoundsInParent;
+import static com.jeanbarrossilva.dias.app.util.Views.getOnClickListener;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @RunWith(Suite.class)
@@ -57,6 +58,23 @@ public class ViewsTests {
         )
       );
       activityController.close();
+    }
+  }
+
+  @RunWith(RobolectricTestRunner.class)
+  public static final class GetOnClickListenerTests {
+    @Test
+    public void returnsNullWhenViewHasNoOnClickListener() {
+      final var view = new View(getApplicationContext());
+      assertThat(getOnClickListener(view)).isNull();
+    }
+
+    @Test
+    public void getsOnClickListener() {
+      final var view = new View(getApplicationContext());
+      final View.OnClickListener listener = clickedView -> {};
+      view.setOnClickListener(listener);
+      assertThat(getOnClickListener(view)).isSameAs(listener);
     }
   }
 }

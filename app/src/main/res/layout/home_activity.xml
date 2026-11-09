@@ -6,7 +6,7 @@
   android:layout_width="match_parent">
   <com.jeanbarrossilva.dias.app.ui.list.AppListView
     android:divider="@drawable/home_pinned_apps_divider"
-    android:id="@+id/handleListView"
+    android:id="@+id/appListView"
     android:layout_height="wrap_content"
     android:layout_width="match_parent"
     android:paddingHorizontal="@dimen/spacing_m"
@@ -23,4 +23,16 @@
     android:src="@drawable/ic_search"
     app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintEnd_toEndOf="parent" />
+
+  <EditText
+    android:hint="@string/home_search_hint"
+    android:id="@+id/searchField"
+    android:importantForAutofill="no"
+    android:inputType="textFilter"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/spacing_m"
+    android:layout_marginHorizontal="@dimen/spacing_m"
+    android:visibility="gone"
+    app:layout_constraintBottom_toBottomOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
