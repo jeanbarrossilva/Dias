@@ -13,7 +13,7 @@ import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
 import com.jeanbarrossilva.dias.launcher.Launcher;
 
 import static com.jeanbarrossilva.dias.app.Dias.requireLauncher;
-import static com.jeanbarrossilva.dias.core.Objects.either;
+import static com.jeanbarrossilva.dias.app.util.Objects.either;
 
 public class HomeActivity extends Activity {
   private HomeActivityBinding binding;
