@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.core;
+package com.jeanbarrossilva.dias.app.util;
 
 /** Extensions for objects of any type. */
 public final class Objects {
