@@ -5,7 +5,7 @@
     parent="Widget.AppCompat.EditText">
     <item name="android:background">@drawable/theme_surface</item>
     <item name="android:fontFamily">@font/space_grotesk</item>
-    <item name="android:padding">16dp</item>
+    <item name="android:padding">24dp</item>
     <item name="android:textAppearance">?textAppearanceBody1</item>
   </style>
 
