@@ -13,7 +13,6 @@ import android.icu.text.Normalizer2;
 
 import androidx.annotation.Nullable;
 import androidx.appsearch.annotation.Document;
-import androidx.appsearch.app.AppSearchEnvironment;
 import androidx.appsearch.app.AppSearchSession;
 import androidx.appsearch.app.PutDocumentsRequest;
 import androidx.appsearch.app.RemoveByDocumentIdRequest;
@@ -27,6 +26,8 @@ import androidx.appsearch.localstorage.LocalStorage;
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.launcher.installation.InstallationDiff;
 
+import java.io.File;
+import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -34,6 +35,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 import java.util.function.IntFunction;
 
 /**
@@ -52,8 +54,10 @@ public final class SearchSession {
    */
   final UUID id;
 
+  private final WeakReference<Context> contextRef;
   private final Future<AppSearchSession> delegateFuture;
   private Handle[] handles;
+  private Consumer<List<Handle>> onSearchListener;
 
   private static final Runnable NO_OP = () -> {};
   private static final SearchSpec SPEC = new SearchSpec.Builder()
@@ -121,12 +125,45 @@ public final class SearchSession {
     }
   }
 
-  SearchSession(final Context context, final String indexName)
+  /// Exception thrown when requesting to search in an ended session.
+  ///
+  /// @see #search(String)
+  public static final class EndedException extends IllegalStateException {
+    /// ID of the ended session.
+    final UUID id;
+
+    /// Instantiates an [EndedException].
+    ///
+    /// @param id ID of the ended session.
+    EndedException(final UUID id) {
+      super("cannot search; session " + id + " has ended");
+      this.id = id;
+    }
+  }
+
+  SearchSession(final WeakReference<Context> contextRef, final String indexName)
     throws NullPointerException {
+    final Context context = contextRef.get();
     final LocalStorage.SearchContext searchContext =
       new LocalStorage.SearchContext.Builder(context, indexName).build();
+    this.contextRef = contextRef;
     this.id = randomUUID();
     this.delegateFuture = LocalStorage.createSearchSessionAsync(searchContext);
+    this.onSearchListener = null;
+  }
+
+  /**
+   * Registers a listener to be notified whenever handles are searched for in
+   * this session.
+   *
+   * @param onSearchListener Listener to be notified of searches. If
+   *   {@code null}, the previous listener will be removed, and won't be
+   *   notified of posterior searches.
+   */
+  public void setOnSearchListener(
+    @Nullable final Consumer<List<Handle>> onSearchListener
+  ) {
+    this.onSearchListener = onSearchListener;
   }
 
   /**
@@ -135,38 +172,46 @@ public final class SearchSession {
    * @param query Text to search handles by. This query will be matched against
    *   the label of every handle, and can be part of that label (e.g., for a
    *   handle labeled "Calculator", {@code query} being {@code "calc"} would
-   *   include the handle in the returned array), match it exactly or be written
-   *   with a typo.
+   *   include the handle in the returned array) or match it exactly.
    * @return The search results, or {@code null} if the query is {@code null}.
    * @see Handle#label
+   * @throws EndedException If this session has ended.
    */
   @Nullable
-  public List<Handle> search(@Nullable final String query) {
-    if (query == null)
-      return null;
-    if (query.isBlank())
-      return new OneTimeCopyOnWriteArrayList<>(
-                                       handles,
+  public List<Handle> search(@Nullable final String query)
+    throws EndedException {
+    if (hasEnded())
+      throw new EndedException(id);
+    final List<Handle> result;
+    if (query == null) {
+      result = null;
+    } else if (query.isBlank()) {
+      result = new OneTimeCopyOnWriteArrayList<>(
+        handles,
         /* isImmutableTreeSetLike = */ true
       );
-    final String normalizedQuery = HandleDocument.normalize(query);
-    final SearchResults resource = getDelegate().search(normalizedQuery, SPEC);
-    final List<SearchResult> page = await(resource.getNextPageAsync());
-    final List<Handle> result = page
-      .stream()
-      .map(searchResult -> {
-        try {
-          return searchResult
-            .getGenericDocument()
-            .toDocumentClass(HandleDocument.class);
-        } catch (final AppSearchException cause) {
-          throw new RuntimeException(cause);
-        }
-      })
-      .sorted(comparingLong(document -> document.index))
-      .map(HandleDocument::toHandle)
-      .toList();
-    resource.close();
+    } else {
+      final String normalizedQuery = HandleDocument.normalize(query);
+      final SearchResults wrapper = getDelegate().search(normalizedQuery, SPEC);
+      final List<SearchResult> page = await(wrapper.getNextPageAsync());
+      result = page
+        .stream()
+        .map(searchResult -> {
+          try {
+            return searchResult
+              .getGenericDocument()
+              .toDocumentClass(HandleDocument.class);
+          } catch (final AppSearchException cause) {
+            throw new RuntimeException(cause);
+          }
+        })
+        .sorted(comparingLong(document -> document.index))
+        .map(HandleDocument::toHandle)
+        .toList();
+      wrapper.close();
+    }
+    if (onSearchListener != null && result != null)
+      onSearchListener.accept(result);
     return result;
   }
 
@@ -227,16 +272,27 @@ public final class SearchSession {
     await(delegate.requestFlushAsync());
   }
 
-  @SuppressLint("RestrictedApi")
   @SuppressWarnings("ResultOfMethodCallIgnored")
-  void end(final Context context) {
-    final AppSearchEnvironment environment = getEnvironmentInstance();
+  void end() {
     final AppSearchSession delegate = getDelegate();
+    final Context context = contextRef.get();
+
+    @SuppressLint("RestrictedApi")
+    final File indexDir = context == null
+      ? null
+      : getEnvironmentInstance()
+        .getAppSearchDir(context, /* userHandle = */ null);
+
+    handles = null;
+    if (onSearchListener != null) {
+      onSearchListener.accept(List.of());
+      setOnSearchListener(null);
+    }
     clear(delegate);
     await(delegate.requestFlushAsync());
     delegate.close();
-    if (context != null)
-      environment.getAppSearchDir(context, /* userHandle = */ null).delete();
+    if (indexDir != null)
+      indexDir.delete();
   }
 
   private AppSearchSession getDelegate() {
@@ -255,6 +311,10 @@ public final class SearchSession {
         .map(handle -> removeDocumentAsync(delegate, handle))
         .toArray(CompletableFuture[]::new)
     );
+  }
+
+  private boolean hasEnded() {
+    return handles == null;
   }
 
   private static <Value> Value await(final Future<Value> future) {

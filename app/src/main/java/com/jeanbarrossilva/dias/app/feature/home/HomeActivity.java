@@ -4,7 +4,9 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.ImageButton;
 
+import com.jeanbarrossilva.dias.app.ui.list.AppListMode;
 import com.jeanbarrossilva.dias.app.util.SafeAreaListener;
 import com.jeanbarrossilva.dias.app.feature.drawer.DrawerActivity;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
@@ -33,15 +35,15 @@ public class HomeActivity extends Activity {
   }
 
   private void showAppList(final Launcher launcher) {
-    binding.handleListView.setLauncher(launcher);
+    launcher.pin(launcher.getHandles().getFirst().id);
+    binding.handleListView.setMode(new AppListMode.Pinned(launcher));
   }
 
   private void setUpNavigationToDrawer() {
-    binding
-      .searchButton
-      .setOnApplyWindowInsetsListener(SafeAreaListener.navigationBars);
-    binding.searchButton.setOnClickListener(button -> {
-      final Context context = either(button.getContext(), this);
+    final ImageButton button = binding.searchButton;
+    button.setOnApplyWindowInsetsListener(SafeAreaListener.navigationBars);
+    button.setOnClickListener(clickedButton -> {
+      final Context context = either(clickedButton.getContext(), this);
       final Intent intent =
         new Intent().setClass(context, DrawerActivity.class);
       context.startActivity(intent);

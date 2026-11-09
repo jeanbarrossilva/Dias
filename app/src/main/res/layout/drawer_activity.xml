@@ -9,7 +9,7 @@
     android:layout_width="match_parent"
     app:layout_constraintBottom_toTopOf="@id/searchField"
     app:layout_constraintTop_toTopOf="parent">
-    <com.jeanbarrossilva.dias.app.ui.AppListView
+    <com.jeanbarrossilva.dias.app.ui.list.AppListView
       android:fadingEdgeLength="128dp"
       android:layout_gravity="center"
       android:id="@+id/appListView"
