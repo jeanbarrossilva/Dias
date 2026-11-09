@@ -352,13 +352,14 @@ public final class Launcher implements Closeable {
    */
   @Nullable
   public SearchSession startSearchSession() throws NullPointerException {
-    final Context context = contextRef.get();
-    if (context == null)
+    try {
+      final var result = new SearchSession(contextRef, searchIndexName);
+      result.sync(handles);
+      searching.put(result.id, result);
+      return result;
+    } catch (final NullPointerException exception) {
       return null;
-    final SearchSession result = new SearchSession(context, searchIndexName);
-    result.sync(handles);
-    searching.put(result.id, result);
-    return result;
+    }
   }
 
   /**
@@ -366,15 +367,11 @@ public final class Launcher implements Closeable {
    *
    * @param searchSession Session to end.
    * @see #startSearchSession()
-   * @throws NullPointerException If the context has been garbage-collected or
-   *   is {@code null}.
    */
-  public void endSearchSession(@Nullable final SearchSession searchSession)
-    throws NullPointerException {
+  public void endSearchSession(@Nullable final SearchSession searchSession) {
     if (searchSession == null)
       return;
-    final Context context = contextRef.get();
-    searchSession.end(context);
+    searchSession.end();
     searching.remove(searchSession.id);
   }
 

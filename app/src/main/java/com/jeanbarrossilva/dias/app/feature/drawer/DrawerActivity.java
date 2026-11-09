@@ -2,17 +2,15 @@ package com.jeanbarrossilva.dias.app.feature.drawer;
 
 import android.app.Activity;
 import android.os.Bundle;
-
-import androidx.annotation.Nullable;
+import android.widget.EditText;
 
 import com.jeanbarrossilva.dias.app.Dias;
+import com.jeanbarrossilva.dias.app.ui.list.AppListMode;
+import com.jeanbarrossilva.dias.app.ui.list.AppListView;
 import com.jeanbarrossilva.dias.app.util.SafeAreaListener;
 import com.jeanbarrossilva.dias.databinding.DrawerActivityBinding;
-import com.jeanbarrossilva.dias.launcher.Handle;
 import com.jeanbarrossilva.dias.launcher.Launcher;
 import com.jeanbarrossilva.dias.launcher.SearchSession;
-
-import java.util.List;
 
 import kotlin.Unit;
 
@@ -24,12 +22,13 @@ public final class DrawerActivity extends Activity {
   DrawerActivityBinding binding;
 
   @Override
-  protected void onCreate(@Nullable final Bundle savedInstanceState) {
+  @SuppressWarnings("resource")
+  protected void onCreate(final Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    final Launcher launcher = requireLauncher();
+    searchSession = requireLauncher().startSearchSession();
     binding = DrawerActivityBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
-    setUpAppList(launcher);
+    setUpAppList();
     setUpSearchField();
   }
 
@@ -39,6 +38,7 @@ public final class DrawerActivity extends Activity {
     super.onDestroy();
     binding = null;
     requireLauncher().endSearchSession(searchSession);
+    searchSession = null;
   }
 
   private Launcher requireLauncher()
@@ -46,26 +46,21 @@ public final class DrawerActivity extends Activity {
     return Dias.requireLauncher(this);
   }
 
-  private void setUpAppList(final Launcher launcher) {
-    binding
-      .appListView
-      .setOnApplyWindowInsetsListener(SafeAreaListener.statusBars);
-    binding.appListView.setAdapter(launcher.getHandles());
+  private void setUpAppList() {
+    final AppListView view = binding.appListView;
+    view.setOnApplyWindowInsetsListener(SafeAreaListener.statusBars);
+    view.setMode(new AppListMode.Search(searchSession));
   }
 
-  @SuppressWarnings({"DataFlowIssue", "resource"})
+  @SuppressWarnings("DataFlowIssue")
   private void setUpSearchField() {
-    binding
-      .searchField
-      .setOnApplyWindowInsetsListener(SafeAreaListener.navigationBars);
-    doOnTextChanged(binding.searchField, (text, start, before, count) -> {
-      if (searchSession == null)
-        searchSession = requireLauncher().startSearchSession();
-      final List<Handle> results = searchSession.search(text.toString());
-      binding.appListView.setAdapter(results);
+    final EditText field = binding.searchField;
+    field.setOnApplyWindowInsetsListener(SafeAreaListener.navigationBars);
+    doOnTextChanged(field, (text, start, before, count) -> {
+      searchSession.search(text.toString());
       return Unit.INSTANCE;
     });
-    binding.searchField.requestFocus();
+    field.requestFocus();
     getWindow().getInsetsController().show(ime());
   }
 }

@@ -22,12 +22,23 @@ import org.assertj.core.api.ListAssert;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.jeanbarrossilva.dias.launcher.SearchSession;
+import com.jeanbarrossilva.dias.launcher.test.SearchSessionAssert;
+
 /**
  * Extensions for AssertJ instance-of-assert factories.
  *
  * @see InstanceOfAssertFactory
  */
 public final class InstanceOfAssertFactories {
+  /** Factory for instantiating {@link SearchSessionAssert}s. */
+  public static final InstanceOfAssertFactory<SearchSession,
+    SearchSessionAssert> SEARCH_SESSION =
+    new InstanceOfAssertFactory<>(
+      SearchSession.class,
+      SearchSessionAssert::assertThat
+    );
+
   private InstanceOfAssertFactories() {}
 
   /**

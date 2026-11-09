@@ -4,16 +4,18 @@ import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractBooleanAssert;
 import org.assertj.core.api.ListAssert;
 import org.assertj.core.api.ObjectAssert;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.test.util.MethodAssert;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
+import static com.jeanbarrossilva.dias.launcher.test.util.InstanceOfAssertFactories.SEARCH_SESSION;
 import static com.jeanbarrossilva.dias.launcher.test.util.InstanceOfAssertFactories.listFromArray;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 import static org.assertj.core.api.InstanceOfAssertFactories.list;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.jeanbarrossilva.dias.launcher.Handle;
 import com.jeanbarrossilva.dias.launcher.Launcher;
@@ -24,16 +26,18 @@ import com.jeanbarrossilva.dias.launcher.SearchSession;
 /// @see #assertThat(Launcher)
 public final class LauncherAssert
   extends AbstractAssert<LauncherAssert, Launcher> {
-  private LauncherAssert(@NotNull final Launcher launcher) {
+  private LauncherAssert(final Launcher launcher) {
     super(launcher, LauncherAssert.class);
   }
 
   /// Returns an asserter for the launcher's handles.
   ///
   /// @see Launcher#getHandles()
-  @NotNull
+  /// @throws AssertionError If the launcher is `null`.
+  @NonNull
   public ListAssert<Handle> handles() {
     try {
+      isNotNull();
       return MethodAssert.assertThat(Launcher.class, "getHandles")
                          .invoke(actual())
                          .asInstanceOf(list(Handle.class));
@@ -47,21 +51,21 @@ public final class LauncherAssert
   /// Asserts that the launcher has at least one handle.
   ///
   /// @see Launcher#hasHandles()
-  @NotNull
+  @NonNull
   public LauncherAssert hasHandles() {
     assertThatHasHandles().isTrue();
     return this;
   }
 
   /// Asserts that calling [Launcher#hasPins()] on the launcher returns `true`.
-  @NotNull
+  @NonNull
   public LauncherAssert hasPins() {
     createHasPinsAssert().isTrue();
     return this;
   }
 
   /// Asserts that calling [Launcher#hasPins()] on the launcher returns `false`.
-  @NotNull
+  @NonNull
   public LauncherAssert doesNotHavePins() {
     createHasPinsAssert().isFalse();
     return this;
@@ -70,9 +74,11 @@ public final class LauncherAssert
   /// Returns an asserter for the launcher's pins.
   ///
   /// @see Launcher#findPins()
-  @NotNull
-  public ListAssert<Handle> pins() {
+  /// @throws AssertionError If the launcher is `null`.
+  @NonNull
+  public ListAssert<Handle> pins() throws AssertionError {
     try {
+      isNotNull();
       return MethodAssert.assertThat(Launcher.class, "findPins")
                          .invokeAsync(actual())
                          .asInstanceOf(listFromArray(Handle[].class));
@@ -87,8 +93,8 @@ public final class LauncherAssert
   ///
   /// @param id ID of the handle.
   /// @see Launcher#isPinned(String)
-  @NotNull
-  public LauncherAssert hasPinned(final String id) {
+  @NonNull
+  public LauncherAssert hasPinned(final String id) throws AssertionError {
     createIsPinnedAssert(id).isTrue();
     return this;
   }
@@ -97,8 +103,8 @@ public final class LauncherAssert
   ///
   /// @param id ID of the handle.
   /// @see Launcher#isPinned(String)
-  @NotNull
-  public LauncherAssert hasUnpinned(final String id) {
+  @NonNull
+  public LauncherAssert hasUnpinned(final String id) throws AssertionError {
     createIsPinnedAssert(id).isFalse();
     return this;
   }
@@ -107,9 +113,11 @@ public final class LauncherAssert
   /// with the given query.
   ///
   /// @param query Text to search handles by.
-  @NotNull
-  public ListAssert<Handle> search(@Nullable final String query) {
-    final SearchSession session = actual.startSearchSession();
+  /// @throws AssertionError If the launcher is `null`.
+  @NonNull
+  public ListAssert<Handle> search(@Nullable final String query)
+    throws AssertionError {
+    final SearchSession session = startSearchSession().actual();
     final ListAssert<Handle> castResult;
     try {
       final ObjectAssert<Object> uncastResult =
@@ -128,21 +136,44 @@ public final class LauncherAssert
     return castResult;
   }
 
+  /// Starts a search session in the launcher.
+  ///
+  /// This method allows for more control over the started session (e.g., adding
+  /// and removing a listener), imposing the responsibility of ending it to the
+  /// caller. In case this level of granularity is unnecessary for your use
+  /// case, refer to [#search(String)] instead.
+  ///
+  /// @return An asserter for the started search session.
+  /// @see Launcher#startSearchSession()
+  /// @throws AssertionError If the launcher is `null`.
+  @NonNull
+  public SearchSessionAssert startSearchSession()
+    throws AssertionError {
+    try {
+      return MethodAssert.assertThat(Launcher.class, "startSearchSession")
+                         .invoke(isNotNull().actual())
+                         .asInstanceOf(SEARCH_SESSION);
+    } catch (final IllegalAccessException
+                 | InvocationTargetException
+                 | NoSuchMethodException cause) {
+      throw new RuntimeException(cause);
+    }
+  }
+
   /// Instantiates an asserter for the given launcher.
   ///
-  /// @param launcher Launcher for which the asserter is.
-  /// @return The instantiated asserter, or `null` if the launcher is `null`.
-  @Nullable
-  public static LauncherAssert assertThat(@Nullable final Launcher launcher) {
-    if (launcher == null)
-      return null;
-    return new LauncherAssert(launcher);
+  /// @param actual Launcher for which the asserter is.
+  /// @return The instantiated asserter.
+  @NonNull
+  public static LauncherAssert assertThat(@Nullable final Launcher actual) {
+    return new LauncherAssert(actual);
   }
 
-  private AbstractBooleanAssert<?> assertThatHasHandles() {
+  private AbstractBooleanAssert<?> assertThatHasHandles()
+    throws AssertionError {
     try {
       return MethodAssert.assertThat(Launcher.class, "hasHandles")
-                         .invoke(actual())
+                         .invoke(isNotNull().actual())
                          .asInstanceOf(BOOLEAN);
     } catch (final IllegalAccessException
                  | InvocationTargetException
@@ -151,10 +182,10 @@ public final class LauncherAssert
     }
   }
 
-  private AbstractBooleanAssert<?> createHasPinsAssert() {
+  private AbstractBooleanAssert<?> createHasPinsAssert() throws AssertionError {
     try {
       return MethodAssert.assertThat(Launcher.class, "hasPins")
-                         .invokeAsync(actual())
+                         .invokeAsync(isNotNull().actual())
                          .asInstanceOf(BOOLEAN);
     } catch (final IllegalAccessException
                  | InvocationTargetException
@@ -163,10 +194,11 @@ public final class LauncherAssert
     }
   }
 
-  private AbstractBooleanAssert<?> createIsPinnedAssert(final String id) {
+  private AbstractBooleanAssert<?> createIsPinnedAssert(final String id)
+    throws AssertionError {
     try {
       return MethodAssert.assertThat(Launcher.class, "isPinned", String.class)
-                         .invokeAsync(actual(), id)
+                         .invokeAsync(isNotNull().actual(), id)
                          .asInstanceOf(BOOLEAN);
     } catch (final IllegalAccessException
                  | InvocationTargetException
