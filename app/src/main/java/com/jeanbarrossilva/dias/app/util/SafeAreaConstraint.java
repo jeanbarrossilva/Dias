@@ -24,7 +24,7 @@ import kotlin.Unit;
 ///   *first* time in which these insets are applied (given that listening to
 ///   subsequent ones would push the view away *too much*).
 /// @see #attach(View)
-public final class  SafeAreaPusher
+public final class SafeAreaConstraint
   extends WindowInsetsAnimation.Callback
   implements View.OnApplyWindowInsetsListener {
   private View container;
@@ -33,16 +33,16 @@ public final class  SafeAreaPusher
   private final int typeMask;
   private boolean wereWindowInsetsApplied;
 
-  /// Instantiates a [SafeAreaPusher].
+  /// Instantiates a [SafeAreaConstraint].
   ///
   /// @param views Views to be pushed.
-  /// @param typeMask Mask with the insets away from which views will be pushed.
-  ///   Should be one of the constants defined in [WindowInsets.Type], or a
-  ///   disjunction of two or more of them (e.g.,
+  /// @param typeMask Mask with the type of the insets away from which the given
+  ///   views will be pushed. Should be one of the inset types defined in
+  ///   [WindowInsets.Type], or a disjunction of two or more of them (e.g.,
   ///   `navigationBars() | statusBars()`).
   /// @see WindowInsets.Type#navigationBars()
   /// @see WindowInsets.Type#statusBars()
-  public SafeAreaPusher(@Nullable final View[] views, final int typeMask) {
+  public SafeAreaConstraint(@Nullable final View[] views, final int typeMask) {
     super(DISPATCH_MODE_STOP);
     this.container = null;
     this.views = views;
@@ -56,12 +56,11 @@ public final class  SafeAreaPusher
       }
     }
     this.typeMask = typeMask;
-    this.wereWindowInsetsApplied = false;
   }
 
-  /// Attaches this pusher to the given view.
+  /// Attaches this constraint to the given view.
   ///
-  /// @param container View to which this pusher will be attached.
+  /// @param container View to which this constraint will be attached.
   /// @see #detach()
   public void attach(@Nullable final View container) {
     this.container = container;
@@ -79,22 +78,22 @@ public final class  SafeAreaPusher
   ) {
     if (views != null && windowInsets != null && runningAnimations != null)
       for (final WindowInsetsAnimation animation: runningAnimations)
-        push(windowInsets, animation);
+        offsetViews(windowInsets, animation);
     return windowInsets;
   }
 
-  /// Requests that the views be pushed from the insets in the union of this
-  /// pusher's type mask and the given animation's. The views will only be
-  /// pushed in case the animation is of one of these insets.
+  /// Requests that the views be pushed away from the insets in the union of
+  /// this constraint's type mask and the given animation's. The views will only
+  /// be pushed in case the animation is of one of these insets.
   ///
-  /// @param windowInsets Insets of the window, from which those of this pusher
+  /// @param windowInsets Insets of the window, from which those of this constraint
   ///   will be extracted.
   /// @param animation Animation according to which the views may be pushed.
   /// @return Whether the views got pushed.
   /// @see WindowInsetsAnimation#getTypeMask()
-  /// @throws NullPointerException If this pusher was instantiated with a `null`
-  ///   array of views.
-  public boolean push(
+  /// @throws NullPointerException If this constraint was instantiated with a
+  ///   `null` array of views.
+  public boolean offsetViews(
     @NonNull final WindowInsets windowInsets,
     @NonNull final WindowInsetsAnimation animation
   ) throws NullPointerException {
@@ -102,7 +101,7 @@ public final class  SafeAreaPusher
       return false;
     final Insets insets = windowInsets.getInsets(typeMask);
     for (final View view: views)
-      push(view, insets);
+      offsetView(insets, view);
     return true;
   }
 
@@ -113,18 +112,18 @@ public final class  SafeAreaPusher
     @Nullable final WindowInsets windowInsets
   ) {
     if (!wereWindowInsetsApplied && windowInsets != null) {
-      push(view, windowInsets.getInsets(typeMask));
+      offsetView(windowInsets.getInsets(typeMask), view);
       wereWindowInsetsApplied = true;
     }
     return windowInsets;
   }
 
-  /// Detaches this pusher from the view to which it was previously attached (if
-  /// it was).
+  /// Detaches this constraint from the view to which it was previously attached
+  /// (if any).
   ///
   /// @implNote There is no intuitive way of checking whether the view's
   ///   listener and callback are ourselves; therefore, this method sets both to
-  ///   `null`. It may be that the caller, not having attached this pusher to a
+  ///   `null`. It may be that the caller, not having attached this constraint to a
   ///   view or having done so, but setting either the listener or the callback
   ///   to something else afterward, will expect that this method will only
   ///   affect what *we* have changed; it, indeed, will *not*.
@@ -143,8 +142,8 @@ public final class  SafeAreaPusher
     }
   }
 
-  private void push(final View view, final Insets insets) {
-    if (view == null)
+  private void offsetView(final Insets insets, final View view) {
+    if (insets == null || view == null)
       return;
     doOnLayout(view, laidOutView -> {
       laidOutView.setTranslationX(insets.left - insets.right);
