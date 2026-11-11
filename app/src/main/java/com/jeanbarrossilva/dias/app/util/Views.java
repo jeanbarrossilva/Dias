@@ -1,8 +1,11 @@
 package com.jeanbarrossilva.dias.app.util;
 
+import static android.view.WindowInsets.Type.ime;
+
 import android.annotation.SuppressLint;
 import android.graphics.RectF;
 import android.view.View;
+import android.view.WindowInsetsController;
 
 import java.lang.reflect.Field;
 
@@ -74,5 +77,37 @@ public final class Views {
       throw new RuntimeException(cause);
     }
     return null;
+  }
+
+  /// Requests that the given view be focused and shows the IME.
+  ///
+  /// @param self View for which focus will be requested.
+  public static void requestFocusWithIme(final View self) {
+    if (self == null)
+      return;
+    final WindowInsetsController windowInsetsController =
+      self.getWindowInsetsController();
+    self.requestFocus();
+    if (windowInsetsController != null)
+      windowInsetsController.show(ime());
+  }
+
+  /// Sets the bottom padding of the given view.
+  ///
+  /// @param self View whose bottom padding will be set.
+  /// @param paddingBottom Amount of padding to be applied to the bottom of the
+  ///   view.
+  public static void setPaddingBottom(
+    final View self,
+    final int paddingBottom
+  ) {
+    if (self == null)
+      return;
+    self.setPadding(
+      self.getPaddingLeft(),
+      self.getPaddingTop(),
+      self.getPaddingRight(),
+      paddingBottom
+    );
   }
 }

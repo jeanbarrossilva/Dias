@@ -6,8 +6,8 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.android.controller.ActivityController;
 
@@ -18,10 +18,10 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 import static com.jeanbarrossilva.dias.app.util.Instrumentations.waitForSize;
 import static com.jeanbarrossilva.dias.app.util.Views.getBoundsInParent;
 import static com.jeanbarrossilva.dias.app.util.Views.getOnClickListener;
+import static com.jeanbarrossilva.dias.app.util.Views.setPaddingBottom;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses(ViewsTests.BoundsInRectTests.class)
+@RunWith(Enclosed.class)
 public class ViewsTests {
   @RunWith(RobolectricTestRunner.class)
   public static final class BoundsInRectTests {
@@ -75,6 +75,21 @@ public class ViewsTests {
       final View.OnClickListener listener = clickedView -> {};
       view.setOnClickListener(listener);
       assertThat(getOnClickListener(view)).isSameAs(listener);
+    }
+  }
+
+  @RunWith(RobolectricTestRunner.class)
+  public static final class SetBottomPaddingTests {
+    @Test
+    public void doesNotThrowWhenSelfIsNull() {
+      setPaddingBottom(null, 0);
+    }
+
+    @Test
+    public void setsBottomPadding() {
+      final var self = new View(getApplicationContext());
+      setPaddingBottom(self, 2);
+      assertThat(self.getPaddingBottom()).isEqualTo(2);
     }
   }
 }

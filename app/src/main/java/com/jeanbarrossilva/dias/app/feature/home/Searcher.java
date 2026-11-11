@@ -1,15 +1,12 @@
 package com.jeanbarrossilva.dias.app.feature.home;
 
-import static android.view.WindowInsets.Type.ime;
 import static com.jeanbarrossilva.dias.app.util.MaterialContainerTransforms.setUpTransition;
 import static com.jeanbarrossilva.dias.app.util.TransitionManagers.transition;
+import static com.jeanbarrossilva.dias.app.util.Views.requestFocusWithIme;
 
 import android.graphics.Color;
+import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowInsets;
-import android.view.WindowInsetsController;
-import android.widget.EditText;
-import android.widget.ImageButton;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
@@ -18,111 +15,81 @@ import androidx.annotation.Nullable;
 import com.google.android.material.transition.MaterialArcMotion;
 import com.google.android.material.transition.MaterialContainerTransform;
 
+import org.apache.commons.lang3.function.BooleanConsumer;
+
 import java.io.Closeable;
 
 final class Searcher implements Closeable {
-  private final OnBackPressedCallback onBackPressedCallback;
-  private final WindowInsetsController.OnControllableInsetsChangedListener
-    onControllableInsetsChangedListener;
+  private OnBackPressedCallback onBackPressedCallback;
   private final MaterialContainerTransform transform;
   private final ViewGroup container;
-  private final ImageButton button;
-  private final EditText field;
-  private Runnable onCancellationListener;
-  private boolean isCancelled;
+  private final View origin;
+  private final View target;
+  private BooleanConsumer onToggleListener;
 
   private static final MaterialArcMotion TRANSFORM_PATH_MOTION =
     new MaterialArcMotion();
 
   public Searcher(
-    final ComponentActivity activity,
     final ViewGroup container,
-    final ImageButton button,
-    final EditText field
+    final View origin,
+    final View target
   ) {
-    this.onBackPressedCallback =
-      new OnBackPressedCallback(/* enabled = */ true) {
-        @Override
-        public void handleOnBackPressed() {
-          cancel();
-        }
-      };
-    activity
-      .getOnBackPressedDispatcher()
-      .addCallback(this.onBackPressedCallback);
-    this.onControllableInsetsChangedListener =
-      new WindowInsetsController.OnControllableInsetsChangedListener() {
-        @Override
-        public void onControllableInsetsChanged(
-          final WindowInsetsController controller,
-          final int typeMask
-        ) {
-          if ((typeMask & ime()) == 0)
-            return;
-          final WindowInsets windowInsets = container.getRootWindowInsets();
-          if (windowInsets == null || !windowInsets.isVisible(ime()))
-            return;
-          cancel();
-          controller.removeOnControllableInsetsChangedListener(this);
-        }
-      };
     this.transform = new MaterialContainerTransform();
     this.transform.setPathMotion(TRANSFORM_PATH_MOTION);
     this.transform.setScrimColor(Color.TRANSPARENT);
     this.container = container;
-    this.button = button;
-    this.field = field;
-    this.onCancellationListener = null;
-    this.isCancelled = false;
+    this.origin = origin;
+    this.target = target;
+    this.onToggleListener = null;
   }
 
-  public void open() {
-    final WindowInsetsController windowInsetsController =
-      container.getWindowInsetsController();
+  public void open(final ComponentActivity activity) {
+    if (onBackPressedCallback == null)
+      onBackPressedCallback =
+        new OnBackPressedCallback(/* enabled = */ true) {
+          @Override
+          public void handleOnBackPressed() {
+            cancel();
+          }
+        };
+    else
+      onBackPressedCallback.remove();
+    activity.getOnBackPressedDispatcher().addCallback(onBackPressedCallback);
     setUpTransition(transform, null, null);
-    transition(container, transform, button, field);
-    field.requestFocus();
-    if (windowInsetsController != null) {
-      windowInsetsController.show(ime());
-      windowInsetsController.addOnControllableInsetsChangedListener(
-        onControllableInsetsChangedListener
-      );
-    }
-    isCancelled = false;
+    transition(container, transform, origin, target);
+    requestFocusWithIme(target);
+    notifyOnToggleListener(true);
   }
 
-  public void setOnCancellationListener(
-    @Nullable final Runnable onCancellationListener
+  public void setOnToggleListener(
+    @Nullable final BooleanConsumer onToggleListener
   ) {
-    this.onCancellationListener = onCancellationListener;
+    this.onToggleListener = onToggleListener;
   }
 
   @Override
   public void close() {
-    if (isCancelled)
-      return;
-    final WindowInsetsController windowInsetsController =
-      container.getWindowInsetsController();
-    onBackPressedCallback.remove();
-    if (windowInsetsController != null)
-      windowInsetsController.removeOnControllableInsetsChangedListener(
-        onControllableInsetsChangedListener
-      );
+    removeCallback();
+    notifyOnToggleListener(false);
     setUpTransition(transform, null, null);
-    markAsCancelled();
   }
 
   private void cancel() {
-    if (isCancelled)
-      return;
-    transition(container, transform, field, button);
-    markAsCancelled();
-
+    removeCallback();
+    notifyOnToggleListener(false);
+    transition(container, transform, target, origin);
   }
 
-  private void markAsCancelled() {
-    isCancelled = true;
-    if (onCancellationListener != null)
-      onCancellationListener.run();
+  private void removeCallback() {
+    if (onBackPressedCallback == null)
+      return;
+    onBackPressedCallback.remove();
+  }
+
+  private void notifyOnToggleListener(final boolean isSearching) {
+    if (onToggleListener == null)
+      return;
+    onToggleListener.accept(isSearching);
   }
 }

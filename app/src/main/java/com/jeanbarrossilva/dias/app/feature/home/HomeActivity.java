@@ -2,12 +2,13 @@ package com.jeanbarrossilva.dias.app.feature.home;
 
 import static android.view.WindowInsets.Type.ime;
 import static android.view.WindowInsets.Type.navigationBars;
+import static android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_STOP;
 
 import android.os.Bundle;
 import android.view.View;
-import android.widget.ImageButton;
+import android.view.WindowInsets;
+import android.view.WindowInsetsAnimation;
 
-import com.jeanbarrossilva.dias.app.ui.list.AppListMode;
 import com.jeanbarrossilva.dias.app.ui.list.AppListView;
 import com.jeanbarrossilva.dias.app.util.SafeAreaPusher;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
@@ -15,63 +16,112 @@ import com.jeanbarrossilva.dias.launcher.Launcher;
 import com.jeanbarrossilva.dias.launcher.SearchSession;
 
 import static com.jeanbarrossilva.dias.app.Dias.requireLauncher;
+import static com.jeanbarrossilva.dias.app.util.Insets.height;
+import static com.jeanbarrossilva.dias.app.util.Views.setPaddingBottom;
+
+import static java.util.Objects.requireNonNull;
 
 import androidx.activity.ComponentActivity;
+import androidx.annotation.NonNull;
+
+import java.util.List;
 
 public class HomeActivity extends ComponentActivity {
   private HomeActivityBinding binding;
-  private Searcher searcher;
   private SafeAreaPusher bottomPusher;
+  private Searcher searcher;
+  private SearchSession searchSession;
+  private final WindowInsetsAnimation.Callback appListPaddingUpdater;
+
+  public HomeActivity() {
+    super();
+    this.appListPaddingUpdater =
+      new WindowInsetsAnimation.Callback(DISPATCH_MODE_STOP) {
+        @NonNull
+        @Override
+        public WindowInsets onProgress(
+          @NonNull final WindowInsets windowInsets,
+          @NonNull final List<WindowInsetsAnimation> runningAnimations
+        ) {
+          for (final WindowInsetsAnimation animation: runningAnimations)
+            if (bottomPusher.push(windowInsets, animation))
+              setPaddingBottom(
+                binding.appListView,
+                height(windowInsets.getInsets(ime()))
+              );
+          return windowInsets;
+        }
+      };
+  }
 
   @Override
   public void onCreate(final Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     binding = HomeActivityBinding.inflate(getLayoutInflater());
-    setContentView(binding.getRoot());
-    searcher = new Searcher(
-      this,
-      binding.getRoot(),
-      binding.searchButton,
-      binding.searchField
-    );
     bottomPusher = new SafeAreaPusher(
       new View[]{binding.searchButton, binding.searchField},
       ime() | navigationBars()
     );
     bottomPusher.attach(binding.getRoot());
+    searcher = new Searcher(
+                     binding.getRoot(),
+      /* origin = */ binding.searchButton,
+      /* target = */ binding.searchField
+    );
     showAppList();
-    setUpSearch();
+    toggleSearchOnButtonClick();
+    setContentView(binding.getRoot());
   }
 
   @Override
   protected void onDestroy() {
     super.onDestroy();
     binding = null;
-    searcher.close();
-    searcher = null;
     bottomPusher.detach();
     bottomPusher = null;
+    searcher.close();
+    searcher = null;
   }
 
   private void showAppList() {
     final Launcher launcher = requireLauncher(this);
-    final AppListView view = binding.appListView;
     launcher.pin(launcher.getHandles().getFirst().id);
-    view.setMode(new AppListMode.Pinned(launcher));
+    binding.appListView.switchToPinnedMode(launcher);
   }
 
-  @SuppressWarnings({"DataFlowIssue", "resource"})
-  private void setUpSearch() {
-    final AppListView appListView = binding.appListView;
-    final ImageButton button = binding.searchButton;
-    button.setOnClickListener(clickedButton -> {
-      final SearchSession searchSession =
-        requireLauncher(this).startSearchSession();
-      appListView.setMode(new AppListMode.Search(searchSession));
-      searcher.setOnCancellationListener(
-        () -> appListView.setMode(new AppListMode.Pinned(requireLauncher(this)))
-      );
-      searcher.open();
+  private void toggleSearchOnButtonClick() {
+    searcher.setOnToggleListener(isSearching -> {
+      final Launcher launcher = requireLauncher(this);
+      final AppListView appListView = binding.appListView;
+      if (isSearching) {
+        searchSession = startAndRequireSearchSession();
+        appListView.switchToSearchMode(searchSession);
+        binding
+          .appListView
+          .setWindowInsetsAnimationCallback(appListPaddingUpdater);
+      } else {
+        launcher.endSearchSession(searchSession);
+        appListView.switchToPinnedMode(launcher);
+        appListView.setOnApplyWindowInsetsListener(bottomPusher);
+        setPaddingBottom(appListView, 0);
+      }
     });
+    binding
+      .searchButton
+      .setOnClickListener(clickedButton -> searcher.open(this));
+  }
+
+  private SearchSession startAndRequireSearchSession()
+    throws NullPointerException {
+    @SuppressWarnings("resource")
+    final SearchSession nullableResult  =
+      requireLauncher(this).startSearchSession();
+
+    return requireNonNull(
+      nullableResult,
+      "requireLauncher("
+        + HomeActivity.class.getSimpleName()
+        + ").startSearchSession()"
+    );
   }
 }

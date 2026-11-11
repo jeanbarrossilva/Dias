@@ -14,6 +14,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.jeanbarrossilva.dias.app.ui.HandleView;
 import com.jeanbarrossilva.dias.launcher.Handle;
 
+import java.util.List;
+
 final class AppListAdapter
   extends ListAdapter<Handle, AppListAdapter.ViewHolder> {
   private AppListMode mode;
@@ -82,7 +84,11 @@ final class AppListAdapter
   }
 
   public void setMode(final AppListMode mode) {
+    if (this.mode != null)
+      this.mode.close();
     this.mode = mode;
-    submitList(mode.getHandles());
+    final List<Handle> handles = mode.getHandles();
+    if (handles != null)
+      submitList(handles);
   }
 }
