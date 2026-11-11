@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.List;
@@ -23,7 +24,7 @@ import kotlin.Unit;
 ///   *first* time in which these insets are applied (given that listening to
 ///   subsequent ones would push the view away *too much*).
 /// @see #attach(View)
-public final class SafeAreaPusher
+public final class  SafeAreaPusher
   extends WindowInsetsAnimation.Callback
   implements View.OnApplyWindowInsetsListener {
   private View container;
@@ -77,14 +78,32 @@ public final class SafeAreaPusher
     @Nullable final List<WindowInsetsAnimation> runningAnimations
   ) {
     if (views != null && windowInsets != null && runningAnimations != null)
-      for (final WindowInsetsAnimation animation: runningAnimations) {
-        if ((animation.getTypeMask() & typeMask) == 0)
-          continue;
-        final Insets insets = windowInsets.getInsets(typeMask);
-        for (final View view: views)
-          push(view, insets);
-      }
+      for (final WindowInsetsAnimation animation: runningAnimations)
+        push(windowInsets, animation);
     return windowInsets;
+  }
+
+  /// Requests that the views be pushed from the insets in the union of this
+  /// pusher's type mask and the given animation's. The views will only be
+  /// pushed in case the animation is of one of these insets.
+  ///
+  /// @param windowInsets Insets of the window, from which those of this pusher
+  ///   will be extracted.
+  /// @param animation Animation according to which the views may be pushed.
+  /// @return Whether the views got pushed.
+  /// @see WindowInsetsAnimation#getTypeMask()
+  /// @throws NullPointerException If this pusher was instantiated with a `null`
+  ///   array of views.
+  public boolean push(
+    @NonNull final WindowInsets windowInsets,
+    @NonNull final WindowInsetsAnimation animation
+  ) throws NullPointerException {
+    if ((animation.getTypeMask() & this.typeMask) == 0)
+      return false;
+    final Insets insets = windowInsets.getInsets(typeMask);
+    for (final View view: views)
+      push(view, insets);
+    return true;
   }
 
   @Nullable

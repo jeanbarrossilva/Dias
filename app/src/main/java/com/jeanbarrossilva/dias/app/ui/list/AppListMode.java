@@ -7,8 +7,9 @@ import com.jeanbarrossilva.dias.launcher.Launcher;
 import com.jeanbarrossilva.dias.launcher.SearchSession;
 
 import java.util.List;
+import java.util.function.Consumer;
 
-public sealed abstract class AppListMode
+sealed abstract class AppListMode
   permits AppListMode.Pinned, AppListMode.Search {
   public static final class Pinned extends AppListMode {
     private final Launcher launcher;
@@ -18,37 +19,45 @@ public sealed abstract class AppListMode
     }
 
     @Override
-    List<Handle> getHandles() {
-      return asList(launcher.findPins());
+    public List<Handle> getHandles() {
+      return launcher == null ? null : asList(launcher.findPins());
     }
 
     @Override
-    void close() {}
+    public void close() {}
   }
 
   public static final class Search extends AppListMode {
     private final SearchSession session;
     private List<Handle> results;
 
-    public Search(final SearchSession session)
+    public Search(
+      final SearchSession session,
+      final Consumer<List<Handle>> onSearchListener
+    )
       throws SearchSession.EndedException {
       this.session = session;
-      session.setOnSearchListener(results -> this.results = results);
-      session.search("");
+      if (this.session == null)
+        return;
+      this.session.setOnSearchListener(results -> {
+        this.results = results;
+        onSearchListener.accept(results);
+      });
+      this.session.search("");
     }
 
     @Override
-    List<Handle> getHandles() {
+    public List<Handle> getHandles() {
       return results;
     }
 
     @Override
-    void close() {
+    public void close() {
       session.setOnSearchListener(null);
     }
   }
 
-  abstract List<Handle> getHandles();
+  public abstract List<Handle> getHandles();
 
-  abstract void close();
+  public abstract void close();
 }

@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.jeanbarrossilva.dias.launcher.Launcher;
+import com.jeanbarrossilva.dias.launcher.SearchSession;
 
 public final class AppListView extends RecyclerView {
   public AppListView(@NonNull final Context context) {
@@ -31,18 +32,21 @@ public final class AppListView extends RecyclerView {
   ) {
     super(context, attrs, defStyleRes);
     if (isInEditMode())
-      setMode(new AppListMode.Pinned(Launcher.sample(context)));
+      switchToPinnedMode(Launcher.sample(context));
   }
 
-  public void setMode(@Nullable final AppListMode mode) {
-    if (mode == null) {
-      final AppListMode oldMode = getMode();
-      if (oldMode != null)
-        oldMode.close();
-      setAdapter(null);
-      setLayoutManager(null);
-      return;
-    }
+  public void switchToPinnedMode(@Nullable final Launcher launcher) {
+    setMode(new AppListMode.Pinned(launcher));
+  }
+
+  public void switchToSearchMode(@Nullable final SearchSession searchSession) {
+    setMode(new AppListMode.Search(searchSession, results -> {
+      if (getAdapter() instanceof AppListAdapter adapter)
+        adapter.submitList(results);
+    }));
+  }
+
+  private void setMode(final AppListMode mode) {
     final Context context = getContext();
     if (context == null)
       return;
@@ -51,12 +55,5 @@ public final class AppListView extends RecyclerView {
     else
       setAdapter(new AppListAdapter(mode));
     setLayoutManager(new LinearLayoutManager(context));
-  }
-
-  @Nullable
-  public AppListMode getMode() {
-    return getAdapter() instanceof AppListAdapter adapter
-      ? adapter.getMode()
-      : null;
   }
 }
