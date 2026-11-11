@@ -2,6 +2,7 @@ package com.jeanbarrossilva.dias.app.feature.home;
 
 import static android.view.WindowInsets.Type.ime;
 import static android.view.WindowInsets.Type.navigationBars;
+import static android.view.WindowInsets.Type.statusBars;
 import static android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_STOP;
 
 import android.os.Bundle;
@@ -10,7 +11,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 
 import com.jeanbarrossilva.dias.app.ui.list.AppListView;
-import com.jeanbarrossilva.dias.app.util.SafeAreaPusher;
+import com.jeanbarrossilva.dias.app.util.SafeAreaConstraint;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
 import com.jeanbarrossilva.dias.launcher.Launcher;
 import com.jeanbarrossilva.dias.launcher.SearchSession;
@@ -28,7 +29,8 @@ import java.util.List;
 
 public class HomeActivity extends ComponentActivity {
   private HomeActivityBinding binding;
-  private SafeAreaPusher bottomPusher;
+  private SafeAreaConstraint statusBarsConstraint;
+  private SafeAreaConstraint bottomAreaConstraint;
   private Searcher searcher;
   private SearchSession searchSession;
   private final WindowInsetsAnimation.Callback appListPaddingUpdater;
@@ -44,7 +46,7 @@ public class HomeActivity extends ComponentActivity {
           @NonNull final List<WindowInsetsAnimation> runningAnimations
         ) {
           for (final WindowInsetsAnimation animation: runningAnimations)
-            if (bottomPusher.push(windowInsets, animation))
+            if (bottomAreaConstraint.offsetViews(windowInsets, animation))
               setPaddingBottom(
                 binding.appListView,
                 height(windowInsets.getInsets(ime()))
@@ -58,11 +60,15 @@ public class HomeActivity extends ComponentActivity {
   public void onCreate(final Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     binding = HomeActivityBinding.inflate(getLayoutInflater());
-    bottomPusher = new SafeAreaPusher(
+    statusBarsConstraint = new SafeAreaConstraint(
+      new View[]{binding.appListView},
+      statusBars()
+    );
+    bottomAreaConstraint = new SafeAreaConstraint(
       new View[]{binding.searchButton, binding.searchField},
       ime() | navigationBars()
     );
-    bottomPusher.attach(binding.getRoot());
+    bottomAreaConstraint.attach(binding.getRoot());
     searcher = new Searcher(
                      binding.getRoot(),
       /* origin = */ binding.searchButton,
@@ -77,8 +83,10 @@ public class HomeActivity extends ComponentActivity {
   protected void onDestroy() {
     super.onDestroy();
     binding = null;
-    bottomPusher.detach();
-    bottomPusher = null;
+    statusBarsConstraint.detach();
+    statusBarsConstraint = null;
+    bottomAreaConstraint.detach();
+    bottomAreaConstraint = null;
     searcher.close();
     searcher = null;
   }
@@ -102,7 +110,7 @@ public class HomeActivity extends ComponentActivity {
       } else {
         launcher.endSearchSession(searchSession);
         appListView.switchToPinnedMode(launcher);
-        appListView.setOnApplyWindowInsetsListener(bottomPusher);
+        appListView.setOnApplyWindowInsetsListener(bottomAreaConstraint);
         setPaddingBottom(appListView, 0);
       }
     });
