@@ -11,7 +11,8 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 
 import com.jeanbarrossilva.dias.app.ui.list.AppListView;
-import com.jeanbarrossilva.dias.app.util.SafeAreaConstraint;
+import com.jeanbarrossilva.dias.app.util.MutableObjectIntMaps;
+import com.jeanbarrossilva.dias.app.util.SafeAreaListener;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
 import com.jeanbarrossilva.dias.launcher.Launcher;
 import com.jeanbarrossilva.dias.launcher.SearchSession;
@@ -28,16 +29,31 @@ import androidx.annotation.NonNull;
 import java.util.List;
 
 public class HomeActivity extends ComponentActivity {
-  private HomeActivityBinding binding;
-  private SafeAreaConstraint statusBarsConstraint;
-  private SafeAreaConstraint bottomAreaConstraint;
+  private SafeAreaListener safeAreaListener;
   private Searcher searcher;
   private SearchSession searchSession;
-  private final WindowInsetsAnimation.Callback appListPaddingUpdater;
+  private WindowInsetsAnimation.Callback appListPaddingUpdater;
 
-  public HomeActivity() {
-    super();
-    this.appListPaddingUpdater =
+  @Override
+  public void onCreate(final Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    final HomeActivityBinding binding =
+      HomeActivityBinding.inflate(getLayoutInflater());
+    setContentView(binding.getRoot());
+    safeAreaListener = new SafeAreaListener(
+      new MutableObjectIntMaps.Builder<View>(/* initialCapacity = */ 3)
+        .put(binding.appListView, statusBars())
+        .put(binding.searchButton, ime() | navigationBars())
+        .put(binding.searchField, ime() | navigationBars())
+        .build()
+    );
+    safeAreaListener.attach(binding.getRoot());
+    searcher = new Searcher(
+                     binding.getRoot(),
+      /* origin = */ binding.searchButton,
+      /* target = */ binding.searchField
+    );
+    appListPaddingUpdater =
       new WindowInsetsAnimation.Callback(DISPATCH_MODE_STOP) {
         @NonNull
         @Override
@@ -46,7 +62,8 @@ public class HomeActivity extends ComponentActivity {
           @NonNull final List<WindowInsetsAnimation> runningAnimations
         ) {
           for (final WindowInsetsAnimation animation: runningAnimations)
-            if (bottomAreaConstraint.offsetViews(windowInsets, animation))
+            if ((safeAreaListener.offsetViews(windowInsets, animation) & ime())
+              == ime())
               setPaddingBottom(
                 binding.appListView,
                 height(windowInsets.getInsets(ime()))
@@ -54,50 +71,26 @@ public class HomeActivity extends ComponentActivity {
           return windowInsets;
         }
       };
-  }
-
-  @Override
-  public void onCreate(final Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    binding = HomeActivityBinding.inflate(getLayoutInflater());
-    statusBarsConstraint = new SafeAreaConstraint(
-      new View[]{binding.appListView},
-      statusBars()
-    );
-    bottomAreaConstraint = new SafeAreaConstraint(
-      new View[]{binding.searchButton, binding.searchField},
-      ime() | navigationBars()
-    );
-    bottomAreaConstraint.attach(binding.getRoot());
-    searcher = new Searcher(
-                     binding.getRoot(),
-      /* origin = */ binding.searchButton,
-      /* target = */ binding.searchField
-    );
-    showAppList();
-    toggleSearchOnButtonClick();
-    setContentView(binding.getRoot());
+    showAppList(binding);
+    toggleSearchOnButtonClick(binding);
   }
 
   @Override
   protected void onDestroy() {
     super.onDestroy();
-    binding = null;
-    statusBarsConstraint.detach();
-    statusBarsConstraint = null;
-    bottomAreaConstraint.detach();
-    bottomAreaConstraint = null;
+    safeAreaListener.detach();
+    safeAreaListener = null;
     searcher.close();
     searcher = null;
   }
 
-  private void showAppList() {
+  private void showAppList(final HomeActivityBinding binding) {
     final Launcher launcher = requireLauncher(this);
     launcher.pin(launcher.getHandles().getFirst().id);
     binding.appListView.switchToPinnedMode(launcher);
   }
 
-  private void toggleSearchOnButtonClick() {
+  private void toggleSearchOnButtonClick(final HomeActivityBinding binding) {
     searcher.setOnToggleListener(isSearching -> {
       final Launcher launcher = requireLauncher(this);
       final AppListView appListView = binding.appListView;
@@ -110,7 +103,7 @@ public class HomeActivity extends ComponentActivity {
       } else {
         launcher.endSearchSession(searchSession);
         appListView.switchToPinnedMode(launcher);
-        appListView.setOnApplyWindowInsetsListener(bottomAreaConstraint);
+        appListView.setOnApplyWindowInsetsListener(safeAreaListener);
         setPaddingBottom(appListView, 0);
       }
     });
