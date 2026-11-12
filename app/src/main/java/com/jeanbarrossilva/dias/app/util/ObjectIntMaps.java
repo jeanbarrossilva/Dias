@@ -2,15 +2,22 @@ package com.jeanbarrossilva.dias.app.util;
 
 import androidx.annotation.NonNull;
 import androidx.collection.MutableObjectIntMap;
+import androidx.collection.ObjectIntMap;
 
-/// Extensions for [MutableObjectIntMap]s.
-public final class MutableObjectIntMaps {
-  /// Allows for instantiating a [MutableObjectIntMap] declaratively.
+import org.agrona.collections.Object2IntHashMap;
+
+import java.util.Map;
+
+import kotlin.Unit;
+
+/// Extensions for [ObjectIntMap]s.
+public final class ObjectIntMaps {
+  /// Allows for instantiating a [ObjectIntMap] declaratively.
   public static final class Builder<Key> {
     private MutableObjectIntMap<Key> result;
     private boolean isDirty;
 
-    /// Instantiates a builder of a [MutableObjectIntMap].
+    /// Instantiates a builder of a [ObjectIntMap].
     ///
     /// @param initialCapacity Amount of key–value pairs expected to be put into
     ///   the map to be built. Surpassing this quantity will result in growth of
@@ -37,7 +44,7 @@ public final class MutableObjectIntMaps {
     ///
     /// @return The built map.
     @NonNull
-    public MutableObjectIntMap<Key> build() {
+    public ObjectIntMap<Key> build() {
       copyIfDirty();
       isDirty = true;
       return result;
@@ -46,28 +53,41 @@ public final class MutableObjectIntMaps {
     private void copyIfDirty() {
       if (!isDirty)
         return;
-      result = copy(result);
+      result = (MutableObjectIntMap<Key>) cloneOf(result);
       isDirty = false;
     }
   }
 
-  private MutableObjectIntMaps() {}
+  private ObjectIntMaps() {}
 
   /// Instantiates a map containing each of the given map's key–value pairs.
   ///
   /// @param self Map whose entries will be copied to the map to be returned.
-  /// @return A copy of the given map, or `null` if the given map is `null`.
-  @SuppressWarnings({"KotlinInternalInJava", "unchecked"})
-  public static <Key> MutableObjectIntMap<Key> copy(
-    final MutableObjectIntMap<Key> self
-  ) {
+  /// @return A clone of the given map, or `null` if the given map is `null`.
+  public static <Key> ObjectIntMap<Key> cloneOf(final ObjectIntMap<Key> self) {
     if (self == null)
       return null;
-    final var result = new MutableObjectIntMap<Key>(self._capacity);
-    for (int index = 0; index < self.count(); index++) {
-      final Key key = (Key) self.keys[index];
-      result.put(key, self.get(key), index);
-    }
+    final var result = new MutableObjectIntMap<Key>(self.getCapacity());
+    if (self.isNotEmpty())
+      self.forEachKey(key -> {
+        result.put(key, self.get(key));
+        return Unit.INSTANCE;
+      });
+    return result;
+  }
+
+  /// Converts the given object–int map into an instance that implements the
+  /// [Map] interface.
+  ///
+  /// @param self Object–int map to be converted into a [Map].
+  public static <Key> Object2IntHashMap<Key> toMap(
+    final ObjectIntMap<Key> self
+  ) {
+    final var result = new Object2IntHashMap<Key>(self.getCapacity());
+    self.forEachKey(key -> {
+      result.put(key, self.get(key));
+      return Unit.INSTANCE;
+    });
     return result;
   }
 }
