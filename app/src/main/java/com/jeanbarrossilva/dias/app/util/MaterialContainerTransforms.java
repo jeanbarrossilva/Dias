@@ -29,15 +29,14 @@ public final class MaterialContainerTransforms {
     final ShapeAppearanceModel startShape = createShape(startView);
     self.setStartView(startView);
     if (startShape != null)
-      self.setEndShapeAppearanceModel(startShape);
+      self.setStartShapeAppearanceModel(startShape);
     if (endView == null) {
       final View oldEndView = self.getEndView();
       if (oldEndView != null) {
         self.removeTarget(oldEndView);
         self.setEndShapeAppearanceModel(null);
       }
-    }
-    else {
+    } else {
       final ShapeAppearanceModel endShape = createShape(endView);
       self.setEndView(endView);
       if (endShape != null)
