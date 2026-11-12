@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 import kotlin.Unit;
+import kotlin.jvm.functions.Function1;
 
 /// Deobscures system UI by pushing views away from their specified, respective
 /// insets.
@@ -28,11 +29,20 @@ public final class SafeAreaInsetter {
   private final View.OnApplyWindowInsetsListener listener;
   private final WindowInsetsAnimation.Callback callback;
 
+  // ObjectIntMap is a Kotlin API, and Java interop doesn't seem to have been
+  // taken into account by the API authors. iterating over the keys (the views,
+  // in our case) requires a lambda, which will be invoked with each key.
+  //
+  // these lambdas, in turn, are invoked at every attach or detach. declaring
+  // them here allows us to avoid allocating them each time one of those two
+  // events happen.
+  private final Function1<? super View, Unit> viewAnchorer;
+  private final Function1<? super View, Unit> viewMarginResetter;
+
   /// Instantiates a detached [SafeAreaInsetter].
   ///
   /// @see #attach(View, ObjectIntMap)
   public SafeAreaInsetter() {
-    this.rootView = null;
     this.constraints = null;
     this.anchors = null;
     this.listener =
@@ -74,12 +84,24 @@ public final class SafeAreaInsetter {
           return windowInsets;
         }
       };
+    this.viewAnchorer = view -> {
+      final var anchor = cloneWithMargins(view.getLayoutParams());
+      if (anchor != null)
+        anchors.put(view, anchor);
+      return Unit.INSTANCE;
+    };
+    this.viewMarginResetter = view -> {
+      final ViewGroup.LayoutParams anchor = anchors.get(view);
+      if (anchor != null)
+        view.setLayoutParams(anchor);
+      return Unit.INSTANCE;
+    };
   }
 
   /// Attaches this insetter to the given root view.
   ///
-  /// Calling this method is a no-op in case the root view or the constraints
-  /// are `null`.
+  /// Calling this method is a no-op in case the root view or the constraint
+  /// map is `null`.
   ///
   /// @param rootView View to which this insetter will be attached.
   /// @param constraints Views to inset, associated to a mask containing the
@@ -88,10 +110,9 @@ public final class SafeAreaInsetter {
   ///   [WindowInsets.Type], or a disjunction of two or more of them (e.g.,
   ///   `navigationBars() | statusBars()`).
   ///
-  ///   This map should either be immutable or remain unchanged until this
-  ///   insetter is detached. Mutating this map's entries may cause null-pointer
-  ///   exceptions being thrown when insets change or are applied to the root
-  ///   view.
+  ///   This map should either be immutable or remain unchanged while this
+  ///   insetter is attached. Mutations may cause null-pointer exceptions being
+  ///   thrown when insets change or are applied to the root view.
   /// @see WindowInsets.Type#navigationBars()
   /// @see WindowInsets.Type#statusBars()
   /// @see #detach()
@@ -101,19 +122,15 @@ public final class SafeAreaInsetter {
   ) {
     if (rootView == null || constraints == null)
       return;
-    resetViewMargins();
+    if (this.constraints != null)
+      this.constraints.forEachKey(viewMarginResetter);
     this.rootView = rootView;
     this.constraints = constraints;
     if (constraints.isEmpty())
       anchors = null;
     else {
       anchors = new HashMap<>(constraints.count());
-      constraints.forEachKey(view -> {
-        final var anchor = cloneWithMargins(view.getLayoutParams());
-        if (anchor != null)
-          anchors.put(view, anchor);
-        return Unit.INSTANCE;
-      });
+      constraints.forEachKey(viewAnchorer);
     }
     rootView.setWindowInsetsAnimationCallback(callback);
     rootView.setOnApplyWindowInsetsListener(listener);
@@ -160,22 +177,21 @@ public final class SafeAreaInsetter {
   ///   listener or callback is the view's; therefore, this method sets both to
   ///   `null`. The caller, having set either the listener or the callback to
   ///   something else *after* they've attached us to the view, might expect
-  ///   that this method will only unset what *we* have set; it, indeed, will
-  ///   *not*.
+  ///   that a call to this method will only unset what *we* have set; it,
+  ///   indeed, will *not*.
   /// @see #attach(View, ObjectIntMap)
   public void detach() {
     if (!isAttached())
       return;
     rootView.setOnApplyWindowInsetsListener(null);
     rootView.setWindowInsetsAnimationCallback(null);
-    rootView = null;
-    resetViewMargins();
+    constraints.forEachKey(viewMarginResetter);
     constraints = null;
     anchors = null;
   }
 
   private boolean isAttached() {
-    return rootView != null && constraints != null;
+    return constraints != null;
   }
 
   private void inset(@Nullable final Insets insets, @Nullable final View view)
@@ -205,16 +221,5 @@ public final class SafeAreaInsetter {
   private int requireTypeMask(@NonNull final View view)
     throws NoSuchElementException, NullPointerException {
     return constraints.get(view);
-  }
-
-  private void resetViewMargins() {
-    if (constraints == null)
-      return;
-    constraints.forEachKey(view -> {
-      final ViewGroup.LayoutParams anchor = anchors.get(view);
-      if (anchor != null)
-        view.setLayoutParams(anchor);
-      return Unit.INSTANCE;
-    });
   }
 }
