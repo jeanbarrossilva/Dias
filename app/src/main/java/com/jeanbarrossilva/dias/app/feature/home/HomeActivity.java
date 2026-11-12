@@ -25,6 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.util.List;
 
@@ -39,21 +40,12 @@ public class HomeActivity extends ComponentActivity {
   }
 
   @Override
-  public void onCreate(final Bundle savedInstanceState) {
+  public void onCreate(@Nullable final Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     final HomeActivityBinding binding =
       HomeActivityBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
-    safeAreaInsetter.attach(
-                          binding.getRoot(),
-      /* constraints = */ new ObjectIntMaps.Builder<View>(
-                            /* initialCapacity = */ 3
-                          )
-                            .put(binding.appListView, statusBars())
-                            .put(binding.searchButton, ime() | navigationBars())
-                            .put(binding.searchField, ime() | navigationBars())
-                            .build()
-    );
+    attachSafeAreaInsetter(binding);
     searcher = new Searcher(
                      binding.getRoot(),
       /* origin = */ binding.searchButton,
@@ -91,13 +83,15 @@ public class HomeActivity extends ComponentActivity {
     searcher = null;
   }
 
-  private void showAppList(final HomeActivityBinding binding) {
+  private void showAppList(@NonNull final HomeActivityBinding binding) {
     final Launcher launcher = requireLauncher(this);
     launcher.pin(launcher.getHandles().getFirst().id);
     binding.appListView.switchToPinnedMode(launcher);
   }
 
-  private void toggleSearchOnButtonClick(final HomeActivityBinding binding) {
+  private void toggleSearchOnButtonClick(
+    @NonNull final HomeActivityBinding binding
+  ) {
     searcher.setOnToggleListener(isSearching -> {
       final Launcher launcher = requireLauncher(this);
       final AppListView appListView = binding.appListView;
@@ -110,13 +104,28 @@ public class HomeActivity extends ComponentActivity {
       } else {
         launcher.endSearchSession(searchSession);
         appListView.switchToPinnedMode(launcher);
-        appListView.setOnApplyWindowInsetsListener(safeAreaInsetter);
+        attachSafeAreaInsetter(binding);
         setPaddingBottom(appListView, 0);
       }
     });
     binding
       .searchButton
       .setOnClickListener(clickedButton -> searcher.open(this));
+  }
+
+  private void attachSafeAreaInsetter(
+    @NonNull final HomeActivityBinding binding
+  ) {
+    safeAreaInsetter.attach(
+                          binding.getRoot(),
+      /* constraints = */ new ObjectIntMaps.Builder<View>(
+                            /* initialCapacity = */ 3
+                          )
+                            .put(binding.appListView, statusBars())
+                            .put(binding.searchButton, ime() | navigationBars())
+                            .put(binding.searchField, ime() | navigationBars())
+                            .build()
+    );
   }
 
   private SearchSession startAndRequireSearchSession()

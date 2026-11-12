@@ -1,10 +1,11 @@
 package com.jeanbarrossilva.dias.app.util;
 
-import static androidx.core.view.ViewKt.doOnLayout;
-import static java.util.Objects.requireNonNull;
+import static android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE;
+import static com.jeanbarrossilva.dias.app.util.LayoutParams.cloneWithMargins;
 
 import android.graphics.Insets;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 
@@ -18,115 +19,128 @@ import java.util.NoSuchElementException;
 
 import kotlin.Unit;
 
-/// Pushes views away from the specified insets whenever the window's insets
-/// change.
-///
-/// @implNote This is both an on-apply-window-insets listener and an animation
-///   callback. Why? Because some views need an initial push away from these
-///   insets, and such initial push might not occur if we're only relying on
-///   notifications to the callback. We work around this by listening to the
-///   *first* time in which these insets are applied (given that listening to
-///   subsequent ones would push the view away *too much*).
-/// @see #attach(View, ObjectIntMap)
-public final class SafeAreaInsetter
-  extends WindowInsetsAnimation.Callback
-  implements View.OnApplyWindowInsetsListener {
-  private View container;
+/// Deobscures system UI by pushing views away from their specified, respective
+/// insets.
+public final class SafeAreaInsetter {
+  private View rootView;
   private ObjectIntMap<View> constraints;
-  private HashMap<View, Translation> oldTranslations;
-
-  private static final class Translation {
-    public final float x;
-    public final float y;
-
-    public Translation(final View view) {
-      this.x = view.getTranslationX();
-      this.y = view.getTranslationY();
-    }
-
-    public void apply(final View view) {
-      view.setTranslationX(x);
-      view.setTranslationY(y);
-    }
-  }
+  private HashMap<View, ViewGroup.LayoutParams> anchors;
+  private final View.OnApplyWindowInsetsListener listener;
+  private final WindowInsetsAnimation.Callback callback;
 
   /// Instantiates a detached [SafeAreaInsetter].
+  ///
+  /// @see #attach(View, ObjectIntMap)
   public SafeAreaInsetter() {
-    super(DISPATCH_MODE_CONTINUE_ON_SUBTREE);
-    this.container = null;
+    this.rootView = null;
     this.constraints = null;
+    this.anchors = null;
+    this.listener =
+      new View.OnApplyWindowInsetsListener() {
+        @Nullable
+        @Override
+        @SuppressWarnings("DataFlowIssue")
+        public WindowInsets onApplyWindowInsets(
+          @Nullable final View view,
+          @Nullable final WindowInsets windowInsets
+        ) {
+          if (isAttached() && windowInsets != null) {
+            if (constraints.containsKey(view)) {
+              final Insets insets =
+                windowInsets.getInsets(requireTypeMask(view));
+              inset(insets, view);
+            } else
+              constraints.forEachKey(constrainedView -> {
+                final Insets insets =
+                  windowInsets.getInsets(requireTypeMask(constrainedView));
+                inset(insets, constrainedView);
+                return Unit.INSTANCE;
+              });
+          }
+          return windowInsets;
+        }
+      };
+    this.callback =
+      new WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+        @Nullable
+        @Override
+        public WindowInsets onProgress(
+          @Nullable final WindowInsets windowInsets,
+          @Nullable final List<WindowInsetsAnimation> runningAnimations
+        ) {
+          if (isAttached() && windowInsets != null && runningAnimations != null)
+            for (final WindowInsetsAnimation animation: runningAnimations)
+              inset(windowInsets, animation);
+          return windowInsets;
+        }
+      };
   }
 
-  /// Attaches this insetter to the given view.
+  /// Attaches this insetter to the given root view.
   ///
-  /// @param constraints The views to be pushed, associated to the mask
-  ///   containing the types of insets away from which the respective view will
-  ///   be pushed. Each mask is expected to be one of the constants defined in
+  /// Calling this method is a no-op in case the root view or the constraints
+  /// are `null`.
+  ///
+  /// @param rootView View to which this insetter will be attached.
+  /// @param constraints Views to inset, associated to a mask containing the
+  ///   types of insets away from which the view will be pushed. Each
+  ///   mask is expected to be one of the constants defined in
   ///   [WindowInsets.Type], or a disjunction of two or more of them (e.g.,
   ///   `navigationBars() | statusBars()`).
-  /// @param container View to which this insetter will be attached.
+  ///
+  ///   This map should either be immutable or remain unchanged until this
+  ///   insetter is detached. Mutating this map's entries may cause null-pointer
+  ///   exceptions being thrown when insets change or are applied to the root
+  ///   view.
   /// @see WindowInsets.Type#navigationBars()
   /// @see WindowInsets.Type#statusBars()
   /// @see #detach()
   public void attach(
-    @Nullable final View container,
+    @Nullable final View rootView,
     @Nullable final ObjectIntMap<View> constraints
   ) {
-    if (container == null) {
-      detach();
+    if (rootView == null || constraints == null)
       return;
-    }
-    if (isAttached())
-      detach();
-    this.container = container;
+    resetViewMargins();
+    this.rootView = rootView;
     this.constraints = constraints;
-    if (constraints == null)
-      oldTranslations = null;
+    if (constraints.isEmpty())
+      anchors = null;
     else {
-      oldTranslations = new HashMap<>(constraints.count());
+      anchors = new HashMap<>(constraints.count());
       constraints.forEachKey(view -> {
-        oldTranslations.put(view, new Translation(view));
+        final var anchor = cloneWithMargins(view.getLayoutParams());
+        if (anchor != null)
+          anchors.put(view, anchor);
         return Unit.INSTANCE;
       });
     }
-    container.setWindowInsetsAnimationCallback(this);
-    container.setOnApplyWindowInsetsListener(this);
-    container.requestApplyInsets();
+    rootView.setWindowInsetsAnimationCallback(callback);
+    rootView.setOnApplyWindowInsetsListener(listener);
+    rootView.requestApplyInsets();
   }
 
-  @Nullable
-  @Override
-  public WindowInsets onProgress(
-    @Nullable final WindowInsets windowInsets,
-    @Nullable final List<WindowInsetsAnimation> runningAnimations
-  ) {
-    if (isAttached() && windowInsets != null && runningAnimations != null)
-      for (final WindowInsetsAnimation animation: runningAnimations)
-        inset(windowInsets, animation);
-    return windowInsets;
-  }
-
-  /// Requests that the views be pushed away from the insets in the union of
-  /// this insetter's type mask and the given animation's. The views will only
-  /// be pushed in case the animation is of one of these insets.
+  /// Requests that the views be pushed away from the insets in the intersection
+  /// of this insetter's type mask and the given animation's. The views will
+  /// only be inset in case the animation is of one of these insets in the
+  /// intersection.
   ///
   /// @param windowInsets Insets of the window.
-  /// @param animation Animation according to which the views may be pushed.
-  /// @return A mask containing the types of insets that were consumed.
+  /// @param animation Animation according to which the views may be inset.
+  /// @return An intersection between this insetter's type mask and that of the
+  ///   animation. Essentially, denotes the types of insets about which this
+  ///   insetter cares and those pertained to the animation.
   /// @see WindowInsetsAnimation#getTypeMask()
-  /// @throws NullPointerException If this insetter was attached with `null`
-  ///   constraints.
-  @NonNull
+  /// @throws NullPointerException If this insetter is detached or either
+  ///   argument is `null`. This insetter can be detached even after a call to
+  ///   [#attach(View, ObjectIntMap)] in case the constraint map passed into
+  ///   that method was `null`.
   public int inset(
     @NonNull final WindowInsets windowInsets,
     @NonNull final WindowInsetsAnimation animation
   ) throws NullPointerException {
-    if (!isAttached())
-      return 0;
-    final ObjectIntMap<View> requiredConstraints =
-      requireNonNull(constraints, "constraints");
     final var typeMasks = new int[1];
-    requiredConstraints.forEachKey(view -> {
+    constraints.forEachKey(view -> {
       final int typeMaskIntersection =
         animation.getTypeMask() & requireTypeMask(view);
       if (typeMaskIntersection != 0) {
@@ -139,73 +153,68 @@ public final class SafeAreaInsetter
     return typeMasks[0];
   }
 
-  @Nullable
-  @Override
-  public WindowInsets onApplyWindowInsets(
-    @Nullable final View view,
-    @Nullable final WindowInsets windowInsets
-  ) {
-    if (isAttached() && windowInsets != null) {
-      if (constraints.containsKey(view)) {
-        final Insets insets = windowInsets.getInsets(requireTypeMask(view));
-        inset(insets, view);
-      } else
-        constraints.forEachKey(constrainedView -> {
-          final Insets insets =
-            windowInsets.getInsets(requireTypeMask(constrainedView));
-          inset(insets, constrainedView);
-          return Unit.INSTANCE;
-        });
-    }
-    return windowInsets;
-  }
-
-  /// Detaches this insetter from the view to which it was previously attached
-  /// (if any).
+  /// Detaches this insetter from the root view to which it was previously
+  /// attached (if any).
   ///
-  /// @implNote There is no intuitive way of checking whether the view's
-  ///   listener and callback are ourselves; therefore, this method sets both to
-  ///   `null`. It may be that the caller, not having attached us to a view or
-  ///   having done so, but having set either the listener or the callback to
-  ///   something else afterward, will expect that this method will only affect
-  ///   what *we* have changed; it, indeed, will *not*.
+  /// @implNote There's no documented way of checking whether this insetter's
+  ///   listener or callback is the view's; therefore, this method sets both to
+  ///   `null`. The caller, having set either the listener or the callback to
+  ///   something else *after* they've attached us to the view, might expect
+  ///   that this method will only unset what *we* have set; it, indeed, will
+  ///   *not*.
   /// @see #attach(View, ObjectIntMap)
   public void detach() {
     if (!isAttached())
       return;
-    container.setOnApplyWindowInsetsListener(null);
-    container.setWindowInsetsAnimationCallback(null);
-    container = null;
-    if (constraints == null)
-      return;
-    if (!oldTranslations.isEmpty()) {
-      constraints.forEachKey(view -> {
-        final Translation oldTranslation = oldTranslations.get(view);
-        if (oldTranslation != null)
-          oldTranslation.apply(view);
-        return Unit.INSTANCE;
-      });
-    }
+    rootView.setOnApplyWindowInsetsListener(null);
+    rootView.setWindowInsetsAnimationCallback(null);
+    rootView = null;
+    resetViewMargins();
     constraints = null;
-    oldTranslations = null;
+    anchors = null;
   }
 
   private boolean isAttached() {
-    return container != null && constraints != null;
+    return rootView != null && constraints != null;
   }
 
-  private void inset(final Insets insets, final View view) {
-    if (insets == null || view == null)
+  private void inset(@Nullable final Insets insets, @Nullable final View view)
+    throws NullPointerException {
+    if (insets == null || view == null || !view.isLaidOut())
       return;
-    doOnLayout(view, laidOutView -> {
-      laidOutView.setTranslationX(insets.left - insets.right);
-      laidOutView.setTranslationY(insets.top - insets.bottom);
-      return Unit.INSTANCE;
-    });
+    final ViewGroup.LayoutParams anchor = anchors.get(view);
+    final ViewGroup.LayoutParams oldLayoutParams = view.getLayoutParams();
+    final var newLayoutParams = oldLayoutParams instanceof
+      final ViewGroup.MarginLayoutParams castOldLayoutParams
+      ? castOldLayoutParams
+      : new ViewGroup.MarginLayoutParams(oldLayoutParams);
+    if (anchor instanceof final ViewGroup.MarginLayoutParams castAnchor) {
+      newLayoutParams.leftMargin = castAnchor.leftMargin + insets.left;
+      newLayoutParams.topMargin = castAnchor.topMargin + insets.top;
+      newLayoutParams.rightMargin = castAnchor.rightMargin + insets.right;
+      newLayoutParams.bottomMargin = castAnchor.bottomMargin + insets.bottom;
+    } else {
+      newLayoutParams.leftMargin = insets.left;
+      newLayoutParams.topMargin = insets.top;
+      newLayoutParams.rightMargin = insets.right;
+      newLayoutParams.bottomMargin = insets.bottom;
+    }
+    view.setLayoutParams(newLayoutParams);
   }
 
-  private int requireTypeMask(final View view)
+  private int requireTypeMask(@NonNull final View view)
     throws NoSuchElementException, NullPointerException {
     return constraints.get(view);
+  }
+
+  private void resetViewMargins() {
+    if (constraints == null)
+      return;
+    constraints.forEachKey(view -> {
+      final ViewGroup.LayoutParams anchor = anchors.get(view);
+      if (anchor != null)
+        view.setLayoutParams(anchor);
+      return Unit.INSTANCE;
+    });
   }
 }
