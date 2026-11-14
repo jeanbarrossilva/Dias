@@ -13,6 +13,7 @@ import android.view.WindowInsetsAnimation;
 import com.jeanbarrossilva.dias.app.ui.list.AppListView;
 import com.jeanbarrossilva.dias.app.util.ObjectIntMaps;
 import com.jeanbarrossilva.dias.app.util.SafeAreaInsetter;
+import com.jeanbarrossilva.dias.app.util.SafeAreaInsetter.Transforming;
 import com.jeanbarrossilva.dias.databinding.HomeActivityBinding;
 import com.jeanbarrossilva.dias.launcher.Launcher;
 import com.jeanbarrossilva.dias.launcher.SearchSession;
@@ -30,13 +31,13 @@ import androidx.annotation.Nullable;
 import java.util.List;
 
 public class HomeActivity extends ComponentActivity {
-  private final SafeAreaInsetter safeAreaInsetter;
+  private final SafeAreaInsetter<?> safeAreaInsetter;
   private Searcher searcher;
   private SearchSession searchSession;
   private WindowInsetsAnimation.Callback appListPaddingUpdater;
 
   public HomeActivity() {
-    safeAreaInsetter = new SafeAreaInsetter();
+    safeAreaInsetter = SafeAreaInsetter.create(Transforming.translation());
   }
 
   @Override
