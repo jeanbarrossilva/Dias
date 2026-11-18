@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.app.ui.list;
+package com.jeanbarrossilva.dias.app.feature.home.ui.list;
 
 import android.content.Context;
 import android.content.res.Resources;

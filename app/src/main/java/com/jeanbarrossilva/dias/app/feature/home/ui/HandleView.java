@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.app.ui;
+package com.jeanbarrossilva.dias.app.feature.home.ui;
 
 import android.content.ActivityNotFoundException;
 import android.content.Context;

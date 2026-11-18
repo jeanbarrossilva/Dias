@@ -10,7 +10,7 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 
-import com.jeanbarrossilva.dias.app.ui.list.AppListView;
+import com.jeanbarrossilva.dias.app.feature.home.ui.list.AppListView;
 import com.jeanbarrossilva.dias.app.util.ObjectIntMaps;
 import com.jeanbarrossilva.dias.app.util.SafeAreaInsetter;
 import com.jeanbarrossilva.dias.app.util.SafeAreaInsetter.Transforming;
