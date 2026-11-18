@@ -1,9 +1,11 @@
 package com.jeanbarrossilva.dias.app.util;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.collection.MutableObjectIntMap;
 import androidx.collection.ObjectIntMap;
 
+import org.agrona.collections.Hashing;
 import org.agrona.collections.Object2IntHashMap;
 
 import java.util.Map;
@@ -34,7 +36,7 @@ public final class ObjectIntMaps {
     ///
     /// @return This builder.
     @NonNull
-    public Builder<Key> put(final Key key, final int value) {
+    public Builder<Key> put(@Nullable final Key key, final int value) {
       copyIfDirty();
       result.put(key, value);
       return this;
@@ -64,7 +66,10 @@ public final class ObjectIntMaps {
   ///
   /// @param self Map whose entries will be copied to the map to be returned.
   /// @return A clone of the given map, or `null` if the given map is `null`.
-  public static <Key> ObjectIntMap<Key> cloneOf(final ObjectIntMap<Key> self) {
+  @Nullable
+  public static <Key> ObjectIntMap<Key> cloneOf(
+    @Nullable final ObjectIntMap<Key> self
+  ) {
     if (self == null)
       return null;
     final var result = new MutableObjectIntMap<Key>(self.getCapacity());
@@ -80,10 +85,17 @@ public final class ObjectIntMaps {
   /// [Map] interface.
   ///
   /// @param self Object–int map to be converted into a [Map].
+  @Nullable
   public static <Key> Object2IntHashMap<Key> toMap(
-    final ObjectIntMap<Key> self
+    @Nullable final ObjectIntMap<Key> self
   ) {
-    final var result = new Object2IntHashMap<Key>(self.getCapacity());
+    if (self == null)
+      return null;
+    final var result = new Object2IntHashMap<Key>(
+      self.getCapacity(),
+      Hashing.DEFAULT_LOAD_FACTOR,
+      /* missingValue = */ 0
+    );
     self.forEachKey(key -> {
       result.put(key, self.get(key));
       return Unit.INSTANCE;
