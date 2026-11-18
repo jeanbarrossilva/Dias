@@ -17,7 +17,8 @@
 package com.jeanbarrossilva.dias.app.util;
 
 import static android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE;
-import static com.jeanbarrossilva.dias.app.util.LayoutParams.cloneWithMargins;
+import static com.jeanbarrossilva.dias.app.util.LayoutParameters.cloneWithMargins;
+import static com.jeanbarrossilva.dias.app.util.LayoutParameters.setMargins;
 
 import android.graphics.Insets;
 import android.view.View;
@@ -149,18 +150,13 @@ public final class SafeAreaInsetter<Transform> {
       ) throws NullPointerException {
         final ViewGroup.MarginLayoutParams result = cloneWithMargins(current);
         if (result != null) {
-          if (anchor instanceof
-            final ViewGroup.MarginLayoutParams marginedAnchor) {
-            result.leftMargin = marginedAnchor.leftMargin + insets.left;
-            result.topMargin = marginedAnchor.topMargin + insets.top;
-            result.rightMargin = marginedAnchor.rightMargin + insets.right;
-            result.bottomMargin = marginedAnchor.bottomMargin + insets.bottom;
-          } else {
-            result.leftMargin = insets.left;
-            result.topMargin = insets.top;
-            result.rightMargin = insets.right;
-            result.bottomMargin = insets.bottom;
-          }
+          if (anchor instanceof final ViewGroup.MarginLayoutParams castAnchor) {
+            result.leftMargin = castAnchor.leftMargin + insets.left;
+            result.topMargin = castAnchor.topMargin + insets.top;
+            result.rightMargin = castAnchor.rightMargin + insets.right;
+            result.bottomMargin = castAnchor.bottomMargin + insets.bottom;
+          } else
+            setMargins(result, insets);
         }
         return result;
       }
@@ -318,9 +314,11 @@ public final class SafeAreaInsetter<Transform> {
   ) {
     if (rootView == null || constraints == null)
       return;
+    if (this.rootView != null)
+      detachFromView(this.rootView);
+    this.rootView = rootView;
     if (this.constraints != null)
       this.constraints.forEachKey(viewTransformResetter);
-    this.rootView = rootView;
     this.constraints = constraints;
     if (constraints.isEmpty())
       anchors = null;
@@ -344,6 +342,7 @@ public final class SafeAreaInsetter<Transform> {
   ///   animation. Essentially, denotes the types of insets about which this
   ///   insetter cares and those pertained to the animation.
   /// @see WindowInsetsAnimation#getTypeMask()
+  /// @see #isAttached()
   /// @throws NullPointerException If this insetter is detached or either
   ///   argument is `null`. This insetter can be detached even after a call to
   ///   [#attach(View, ObjectIntMap)] in case the constraint map passed into
@@ -379,8 +378,8 @@ public final class SafeAreaInsetter<Transform> {
   public void detach() {
     if (!isAttached())
       return;
-    rootView.setOnApplyWindowInsetsListener(null);
-    rootView.setWindowInsetsAnimationCallback(null);
+    detachFromView(rootView);
+    rootView = null;
     constraints.forEachKey(viewTransformResetter);
     constraints = null;
     anchors = null;
@@ -416,7 +415,17 @@ public final class SafeAreaInsetter<Transform> {
     return new SafeAreaInsetter<>(Transforming.margins());
   }
 
-  private boolean isAttached() {
+  /**
+   * Whether this insetter is attached to the given root view.
+   *
+   * @param rootView Root view to check whether this insetter is attached.
+   */
+  boolean isAttached(@Nullable final View rootView) {
+    return isAttached() && this.rootView == rootView;
+  }
+
+  /** Whether this insetter is attached to a root view. */
+  boolean isAttached() {
     return constraints != null;
   }
 
@@ -430,5 +439,10 @@ public final class SafeAreaInsetter<Transform> {
   private int requireTypeMask(@NonNull final View view)
     throws NoSuchElementException, NullPointerException {
     return constraints.get(view);
+  }
+
+  private void detachFromView(@NonNull final View view) {
+    view.setOnApplyWindowInsetsListener(null);
+    view.setWindowInsetsAnimationCallback(null);
   }
 }
