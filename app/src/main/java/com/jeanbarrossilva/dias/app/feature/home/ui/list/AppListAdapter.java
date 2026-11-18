@@ -1,4 +1,4 @@
-package com.jeanbarrossilva.dias.app.ui.list;
+package com.jeanbarrossilva.dias.app.feature.home.ui.list;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.jeanbarrossilva.dias.app.ui.HandleView;
+import com.jeanbarrossilva.dias.app.feature.home.ui.HandleView;
 import com.jeanbarrossilva.dias.launcher.Handle;
 
 import java.util.List;

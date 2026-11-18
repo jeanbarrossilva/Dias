@@ -4,7 +4,7 @@
   xmlns:app="http://schemas.android.com/apk/res-auto"
   android:layout_height="match_parent"
   android:layout_width="match_parent">
-  <com.jeanbarrossilva.dias.app.ui.list.AppListView
+  <com.jeanbarrossilva.dias.app.feature.home.ui.list.AppListView
     android:id="@+id/appListView"
     android:layout_height="wrap_content"
     android:layout_width="match_parent"
