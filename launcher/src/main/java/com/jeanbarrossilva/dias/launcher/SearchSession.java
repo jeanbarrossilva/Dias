@@ -1,8 +1,26 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program. If not, see https://www.gnu.org/licenses.
+ */
+
 package com.jeanbarrossilva.dias.launcher;
 
 import static androidx.appsearch.app.AppSearchEnvironmentFactory.getEnvironmentInstance;
 import static androidx.appsearch.app.AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES;
 import static com.jeanbarrossilva.dias.launcher.util.ListenableFutures.toCompletableFuture;
+import static com.jeanbarrossilva.dias.launcher.util.UUIDs.toByteArray;
 import static java.util.Arrays.stream;
 import static java.util.Comparator.comparingLong;
 import static java.util.UUID.randomUUID;
@@ -10,7 +28,10 @@ import static java.util.UUID.randomUUID;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.icu.text.Normalizer2;
+import android.os.Parcel;
+import android.os.Parcelable;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appsearch.annotation.Document;
 import androidx.appsearch.app.AppSearchSession;
@@ -25,9 +46,9 @@ import androidx.appsearch.localstorage.LocalStorage;
 
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
 import com.jeanbarrossilva.dias.launcher.installation.InstallationDiff;
+import com.jeanbarrossilva.dias.launcher.util.UUIDs;
 
 import java.io.File;
-import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -41,9 +62,22 @@ import java.util.function.IntFunction;
 /**
  * Session for searching for handles with text-based queries.
  *
- * @see #search(String)
+ * @see #search(Context, String)
  */
-public final class SearchSession {
+public final class SearchSession implements Parcelable {
+  /// Instantiator of sessions from parcels.
+  public static final Creator<SearchSession> CREATOR = new Creator<>() {
+    @Override
+    public SearchSession createFromParcel(final Parcel in) {
+      return new SearchSession(in);
+    }
+
+    @Override
+    public SearchSession[] newArray(final int size) {
+      return new SearchSession[size];
+    }
+  };
+
   /**
    * Unique identifier of this session. Allows the launcher to index this
    * session in constant time, retrieving and ending it whenever the user
@@ -54,8 +88,8 @@ public final class SearchSession {
    */
   final UUID id;
 
-  private final WeakReference<Context> contextRef;
-  private final Future<AppSearchSession> delegateFuture;
+  private final String indexName;
+  private Future<AppSearchSession> delegateFuture;
   private Handle[] handles;
   private Consumer<List<Handle>> onSearchListener;
 
@@ -127,7 +161,7 @@ public final class SearchSession {
 
   /// Exception thrown when requesting to search in an ended session.
   ///
-  /// @see #search(String)
+  /// @see #search(Context, String)
   public static final class EndedException extends IllegalStateException {
     /// ID of the ended session.
     final UUID id;
@@ -141,15 +175,51 @@ public final class SearchSession {
     }
   }
 
-  SearchSession(final WeakReference<Context> contextRef, final String indexName)
-    throws NullPointerException {
-    final Context context = contextRef.get();
-    final LocalStorage.SearchContext searchContext =
-      new LocalStorage.SearchContext.Builder(context, indexName).build();
-    this.contextRef = contextRef;
-    this.id = randomUUID();
-    this.delegateFuture = LocalStorage.createSearchSessionAsync(searchContext);
+  /// Exception thrown when instantiating a session, or syncing or searching in
+  /// a session instantiated from a parcel *without* a context (i.e., with a
+  /// `null` context).
+  public static final class UncontextualizedException
+    extends IllegalStateException {
+    /// Instantiates an [UncontextualizedException].
+    UncontextualizedException() {
+      super("a context is required, but none was given");
+    }
+  }
+
+  /// Instantiates a session from a parceled one.
+  ///
+  /// @param in The parceled session.
+  /// @throws NullPointerException If the parceled session is `null`.
+  public SearchSession(final Parcel in) throws NullPointerException {
+    this.id = UUIDs.of(in.createByteArray());
+    this.indexName = in.readString();
+    this.handles =
+      in.readParcelableArray(Handle.class.getClassLoader(), Handle.class);
+    this.delegateFuture = null;
     this.onSearchListener = null;
+  }
+
+  SearchSession(
+    @Nullable final Context context,
+    @NonNull final String indexName
+  ) throws UncontextualizedException {
+    this.id = randomUUID();
+    this.indexName = indexName;
+    this.handles = null;
+    this.delegateFuture = createDelegateFuture(context);
+    this.onSearchListener = null;
+  }
+
+  @Override
+  public int describeContents() {
+    return 0;
+  }
+
+  @Override
+  public void writeToParcel(@NonNull final Parcel parcel, final int i) {
+    parcel.writeByteArray(toByteArray(id));
+    parcel.writeString(indexName);
+    parcel.writeParcelableArray(handles, i);
   }
 
   /**
@@ -176,23 +246,29 @@ public final class SearchSession {
    * @return The search results, or {@code null} if the query is {@code null}.
    * @see Handle#label
    * @throws EndedException If this session has ended.
+   * @throws UncontextualizedException If this session is the result of a
+   *   deserialization and the given context is {@code null}.
    */
   @Nullable
-  public List<Handle> search(@Nullable final String query)
-    throws EndedException {
+  public List<Handle> search(
+    @Nullable final Context context,
+    @Nullable final String query
+  ) throws EndedException, UncontextualizedException {
     if (hasEnded())
       throw new EndedException(id);
     final List<Handle> result;
-    if (query == null) {
+    if (delegateFuture == null && context == null)
+      throw new UncontextualizedException();
+    else if (query == null)
       result = null;
-    } else if (query.isBlank()) {
+    else if (query.isBlank()) {
       result = new OneTimeCopyOnWriteArrayList<>(
         handles,
         /* isImmutableTreeSetLike = */ true
       );
     } else {
-      final String normalizedQuery = HandleDocument.normalize(query);
-      final SearchResults wrapper = getDelegate().search(normalizedQuery, SPEC);
+      final SearchResults wrapper =
+        getDelegate(context).search(HandleDocument.normalize(query), SPEC);
       final List<SearchResult> page = await(wrapper.getNextPageAsync());
       result = page
         .stream()
@@ -224,12 +300,16 @@ public final class SearchSession {
    * <p>
    * For syncing due to changes on handles that have already been synced, and
    * considering only the what's been changed on them, call
-   * {@link #sync(InstallationDiff, Handle[])} instead.
+   * {@link #sync(Context, InstallationDiff, Handle[])} instead.
    *
+   * @param context Context in which the index is or will be created.
    * @param handles All handles in the launcher.
+   * @throws UncontextualizedException If this session is the result of a
+   *   deserialization and the given context is {@code null}.
    */
-  void sync(final Handle[] handles) {
-    final AppSearchSession delegate = getDelegate();
+  void sync(@Nullable final Context context, @NonNull final Handle[] handles)
+    throws UncontextualizedException {
+    final AppSearchSession delegate = getDelegate(context);
     clear(delegate);
     this.handles = handles;
     final var futures = new CompletableFuture[handles.length];
@@ -241,19 +321,24 @@ public final class SearchSession {
 
   /**
    * Synchronizes the index according to the given diff. Instead of iterating
-   * over an entire array of handles (as does {@link #sync(Handle[])}), only the
-   * change to the handles given to this session last will be synced.
+   * over an entire array of handles (as does {@link #sync(Context, Handle[])}),
+   * only the change to the handles given to this session last will be synced.
    *
+   * @param context Context in which the index is or will be created.
    * @param diff Change to the handles provided to the last call to
-   *   {@link #sync(Handle[])} to be synced with this session.
+   *   {@link #sync(Context, Handle[])} to be synced with this session.
    * @param handles Result of having merged the diff with the handles with which
    *   this session was last synced.
    */
-  void sync(final InstallationDiff diff, final Handle[] handles) {
+  void sync(
+    @Nullable final Context context,
+    @NonNull final InstallationDiff diff,
+    @NonNull final Handle[] handles
+  ) {
     this.handles = handles;
     if (diff.indices.length == 0)
       return;
-    final AppSearchSession delegate = getDelegate();
+    final AppSearchSession delegate = getDelegate(context);
     final IntFunction<CompletableFuture<Void>> synchronizer =
       switch (diff.kind) {
         case INSTALLATION ->
@@ -273,9 +358,8 @@ public final class SearchSession {
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
-  void end() {
-    final AppSearchSession delegate = getDelegate();
-    final Context context = contextRef.get();
+  void end(final Context context) {
+    final AppSearchSession delegate = getDelegate(context);
 
     @SuppressLint("RestrictedApi")
     final File indexDir = context == null
@@ -295,7 +379,11 @@ public final class SearchSession {
       indexDir.delete();
   }
 
-  private AppSearchSession getDelegate() {
+  @NonNull
+  private AppSearchSession getDelegate(@Nullable final Context context)
+    throws UncontextualizedException {
+    if (delegateFuture == null)
+      delegateFuture = createDelegateFuture(context);
     final boolean wasDone = delegateFuture.isDone();
     final AppSearchSession delegate = await(delegateFuture);
     if (!wasDone)
@@ -303,7 +391,21 @@ public final class SearchSession {
     return delegate;
   }
 
-  private void clear(final AppSearchSession delegate) {
+  private Future<AppSearchSession> createDelegateFuture(
+    @Nullable final Context context
+  ) throws UncontextualizedException {
+    try {
+      @SuppressWarnings("DataFlowIssue")
+      final LocalStorage.SearchContext searchContext =
+        new LocalStorage.SearchContext.Builder(context, indexName).build();
+
+      return LocalStorage.createSearchSessionAsync(searchContext);
+    } catch (final NullPointerException exception) {
+      throw new UncontextualizedException();
+    }
+  }
+
+  private void clear(@NonNull final AppSearchSession delegate) {
     if (handles == null)
       return;
     awaitAll(
@@ -317,7 +419,7 @@ public final class SearchSession {
     return handles == null;
   }
 
-  private static <Value> Value await(final Future<Value> future) {
+  private static <Value> Value await(@NonNull final Future<Value> future) {
     try {
       return future.get();
     } catch (final CancellationException
@@ -328,10 +430,11 @@ public final class SearchSession {
   }
 
   @SuppressWarnings("rawtypes")
-  private static void awaitAll(final CompletableFuture[] futures) {
+  private static void awaitAll(@NonNull final CompletableFuture[] futures) {
     CompletableFuture.allOf(futures).join();
   }
 
+  @NonNull
   private static CompletableFuture<Void> updateDocumentAsync(
     final AppSearchSession delegate,
     final Handle handle,
@@ -341,9 +444,10 @@ public final class SearchSession {
       .thenCompose(theVoid -> putDocumentAsync(delegate, handle, index));
   }
 
+  @NonNull
   private static CompletableFuture<Void> putDocumentAsync(
-    final AppSearchSession delegate,
-    final Handle handle,
+    @NonNull final AppSearchSession delegate,
+    @NonNull final Handle handle,
     final int index
   ) {
     try {
@@ -358,9 +462,10 @@ public final class SearchSession {
     }
   }
 
+  @NonNull
   private static CompletableFuture<Void> removeDocumentAsync(
-    final AppSearchSession delegate,
-    final Handle handle
+    @NonNull final AppSearchSession delegate,
+    @NonNull final Handle handle
   ) {
     final RemoveByDocumentIdRequest request =
       new RemoveByDocumentIdRequest.Builder(HandleDocument.NAMESPACE)

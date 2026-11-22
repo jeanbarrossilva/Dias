@@ -191,7 +191,7 @@ public final class Launcher implements Closeable {
           }
         }
         for (final SearchSession searchSession: this.searching.values())
-          searchSession.sync(diff, this.handles);
+          searchSession.sync(context, diff, this.handles);
       });
     if (context != null)
       context.registerReceiver(
@@ -353,11 +353,12 @@ public final class Launcher implements Closeable {
   @Nullable
   public SearchSession startSearchSession() throws NullPointerException {
     try {
-      final var result = new SearchSession(contextRef, searchIndexName);
-      result.sync(handles);
+      final Context context = getContext();
+      final var result = new SearchSession(context, searchIndexName);
+      result.sync(context, handles);
       searching.put(result.id, result);
       return result;
-    } catch (final NullPointerException exception) {
+    } catch (final SearchSession.UncontextualizedException exception) {
       return null;
     }
   }
@@ -371,7 +372,7 @@ public final class Launcher implements Closeable {
   public void endSearchSession(@Nullable final SearchSession searchSession) {
     if (searchSession == null)
       return;
-    searchSession.end();
+    searchSession.end(getContext());
     searching.remove(searchSession.id);
   }
 
@@ -424,13 +425,19 @@ public final class Launcher implements Closeable {
    */
   @Override
   public void close() {
-    final Context context = contextRef.get();
+    final Context context = getContext();
     pinDatabase.close();
     if (context != null)
       context.unregisterReceiver(installationChangeReceiver);
     onPinningListener = null;
     for (final SearchSession searchSession: searching.values())
       endSearchSession(searchSession);
+  }
+
+  /// Returns the context being referenced by this launcher.
+  @Nullable
+  public Context getContext() {
+    return contextRef.get();
   }
 
   /**

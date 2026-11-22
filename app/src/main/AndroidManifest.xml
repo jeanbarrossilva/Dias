@@ -16,6 +16,4 @@
       </intent-filter>
     </activity>
   </application>
-
-  <queries />
 </manifest>

@@ -1,18 +1,38 @@
+# Copyright © 2026 Jean Silva
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see https://www.gnu.org/licenses.
+
 [versions]
 android-appSearch = '1.1.0'
 android-gradle = '9.5.1'
 android-room = '2.8.5'
-android-sdk-compile = '36'
+android-sdk-compile-major = '37'
+android-sdk-compile-minor = '1'
 android-test-espresso = '3.7.0'
 java = '21'
+kotlin = '2.4.21'
 
 [libraries]
 agrona = { group = 'org.agrona', name = 'agrona', version = '2.6.1' }
-android-activity = { group = 'androidx.activity', name = 'activity', version = '1.13.0' }
+android-activity-compose = { group = 'androidx.activity', name = 'activity-compose', version = '1.13.0' }
 android-appSearch = { group = 'androidx.appsearch', name = 'appsearch', version.ref = 'android-appSearch' }
 android-appSearch-compiler = { group = 'androidx.appsearch', name = 'appsearch-compiler', version.ref = 'android-appSearch' }
 android-appSearch-localStorage = { group = 'androidx.appsearch', name = 'appsearch-local-storage', version.ref = 'android-appSearch' }
 android-collection = { group = 'androidx.collection', name = 'collection', version = '1.7.0' }
+android-compose-ui-tooling = { group = 'androidx.compose.ui', name = 'ui-tooling', version = '1.13.0' }
+android-compose-material-icons = { group = 'androidx.compose.material', name = 'material-icons-core', version = '1.7.8' }
+android-compose-material3 = { group = 'androidx.compose.material3', name = 'material3', version = '1.5.0' }
 android-constraintLayout = { group = 'androidx.constraintlayout', name = 'constraintlayout', version = '2.2.2' }
 android-material = { group = 'com.google.android.material', name = 'material', version = '1.14.0' }
 android-room-compiler = { group = 'androidx.room', name = 'room-compiler', version.ref = 'android-room' }
@@ -31,5 +51,7 @@ robolectric = { group = 'org.robolectric', name = 'robolectric', version = '4.16
 
 [plugins]
 android-application = { id = 'com.android.application', version.ref = 'android-gradle' }
+android-compose = { id = 'org.jetbrains.kotlin.plugin.compose', version.ref = 'kotlin' }
 android-library = { id = 'com.android.library', version.ref = 'android-gradle' }
+kotlin-parcelize = { id = 'org.jetbrains.kotlin.plugin.parcelize', version.ref = 'kotlin' }
 ksp = { id = 'com.google.devtools.ksp', version = '2.3.10' }
