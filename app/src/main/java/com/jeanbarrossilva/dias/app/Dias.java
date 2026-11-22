@@ -8,6 +8,9 @@ import java.io.Closeable;
 
 import static java.util.Objects.requireNonNull;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 /**
  * Static utilities for global, Dias-specific operations.
  * <p>
@@ -33,8 +36,9 @@ public final class Dias {
    *   been terminated.
    * @throws NullPointerException If the activity is {@code null}.
    */
-  public static Launcher requireLauncher(final Activity activity)
-    throws ClassCastException, NullPointerException {
+  @NonNull
+  public static Launcher requireLauncher(@Nullable final Activity activity)
+    throws ClassCastException, IllegalStateException, NullPointerException {
     final DiasApplication app = requireNonNull(
       ((DiasApplication) requireNonNull(activity, "activity").getApplication()),
       "activity.getApplication()"

@@ -1,3 +1,20 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program. If not, see https://www.gnu.org/licenses.
+ */
+
 package com.jeanbarrossilva.dias.launcher;
 
 import android.content.ActivityNotFoundException;
@@ -7,6 +24,8 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.Parcel;
+import android.os.Parcelable;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,7 +44,7 @@ import static java.util.Objects.hash;
  * Holds information about a user-visible, installed application.
  */
 @SuppressWarnings("ClassCanBeRecord")
-public final class Handle implements Comparable<Handle> {
+public final class Handle implements Comparable<Handle>, Parcelable {
   /**
    * A handle for demonstration purposes.
    *
@@ -47,6 +66,37 @@ public final class Handle implements Comparable<Handle> {
   @NonNull
   public final String label;
 
+  /// Instantiator of handles from parcels.
+  public static final Creator<Handle> CREATOR = new Creator<>() {
+    @Override
+    public Handle createFromParcel(Parcel in) {
+      return new Handle(in);
+    }
+
+    @Override
+    public Handle[] newArray(int size) {
+      return new Handle[size];
+    }
+  };
+
+  /// Instantiates a handle based on a parcelized one.
+  ///
+  /// @param in The parcelized handle.
+  public Handle(final Parcel in) {
+    this(/* id = */ in.readString(), /* label = */ in.readString());
+  }
+
+  /// Instantiates a handle.
+  ///
+  /// @param id Identifier of this handle. Consists of this handle's associated
+  ///   activity's flattened name.
+  /// @param label Localized text considered to be the name of the application.
+  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+  public Handle(final String id, final String label) {
+    this.id = id;
+    this.label = label;
+  }
+
   @VisibleForTesting
   Handle(
     final String packageName,
@@ -56,10 +106,15 @@ public final class Handle implements Comparable<Handle> {
     this(/* id = */ packageName + '/' + activityName, label);
   }
 
-  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-  public Handle(final String id, final String label) {
-    this.id = id;
-    this.label = label;
+  @Override
+  public int describeContents() {
+    return 0;
+  }
+
+  @Override
+  public void writeToParcel(@NonNull Parcel parcel, int i) {
+    parcel.writeString(id);
+    parcel.writeString(label);
   }
 
   /** Instantiates handles for demonstration purposes. */
@@ -68,10 +123,10 @@ public final class Handle implements Comparable<Handle> {
       .stream()
       .map(
         index -> new Handle(
-          /* packageName = */  "com.jeanbarrossilva.dias",
+          /* packageName = */ "com.jeanbarrossilva.dias",
           /* activityName = */ "com.jeanbarrossilva.dias.Activity"
-          + (index + 1),
-          /* label = */        "App " + (index + 1)
+            + (index + 1),
+          /* label = */ "App " + (index + 1)
         )
       )
       .toArray(Handle[]::new);

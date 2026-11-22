@@ -1,3 +1,20 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program. If not, see https://www.gnu.org/licenses.
+ */
+
 @file:Suppress("NotShrinkingResources")
 
 import com.android.build.api.dsl.ApplicationExtension
@@ -5,15 +22,9 @@ import com.android.build.api.dsl.CommonExtension
 import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.JavaVersion
 
-/** The Android compile SDK version specified in the catalog. */
-private val compileSdkVersion
-  get() = libs
-    .findVersion("android-sdk-compile")
-    .get()
-    .requiredVersion
-    .toInt()
+private val majorCompileSdkVersion
+  get() = getCompileSdkVersion("major")
 
-/** The version of Java specified in the catalog. */
 private val javaVersion
   get() = libs
     .findVersion("java")
@@ -22,9 +33,15 @@ private val javaVersion
     .replaceFirst('.', '_')
     .let { JavaVersion.valueOf("VERSION_$it") }
 
+private fun getCompileSdkVersion(suffix: String) = libs
+  .findVersion("android-sdk-compile-$suffix")
+  .get()
+  .requiredVersion
+  .toInt()
+
 extensions.configure(CommonExtension::class.java) {
   defaultConfig.apply {
-    minSdk = compileSdkVersion
+    minSdk = majorCompileSdkVersion
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -33,7 +50,9 @@ extensions.configure(CommonExtension::class.java) {
   }
 
   compileSdk {
-    version = release(compileSdkVersion)
+    version = release(majorCompileSdkVersion) {
+      minorApiLevel = getCompileSdkVersion("minor")
+    }
   }
 
   testOptions.unitTests.isIncludeAndroidResources = true
