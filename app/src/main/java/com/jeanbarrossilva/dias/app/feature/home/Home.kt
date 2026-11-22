@@ -99,7 +99,7 @@ private fun Home(
           when (mode) {
             is Mode.Pinned ->
               FloatingActionButton(
-                onClick = { onModeChange(Mode.Search(query = "")) },
+                onClick = { onModeChange(Mode.Search.Empty) },
                 Modifier.sharedBounds(
                   rememberSharedContentState(ModeSwitchTransitionKey),
                   this,
