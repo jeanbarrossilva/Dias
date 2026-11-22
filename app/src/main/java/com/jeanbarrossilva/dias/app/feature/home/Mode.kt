@@ -66,9 +66,6 @@ internal sealed interface Mode: Closeable, Parcelable {
 
         override fun newArray(size: Int) = arrayOfNulls<Search>(size)
       }
-
-      @JvmStatic
-      val Empty = Search(query = "")
     }
   }
 
