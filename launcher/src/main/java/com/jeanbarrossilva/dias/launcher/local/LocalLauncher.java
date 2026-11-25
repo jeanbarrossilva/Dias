@@ -14,16 +14,19 @@
  * Dias. If not, see https://www.gnu.org/licenses.
  */
 
-package com.jeanbarrossilva.dias.launcher;
+package com.jeanbarrossilva.dias.launcher.local;
 
 import static java.util.Arrays.stream;
-import static java.util.UUID.randomUUID;
 
 import android.content.Context;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
+
+import com.jeanbarrossilva.dias.launcher.Handle;
+import com.jeanbarrossilva.dias.launcher.Launcher;
+import com.jeanbarrossilva.dias.launcher.SearchSession;
 
 import java.util.HashSet;
 import java.util.List;
@@ -40,11 +43,7 @@ public final class LocalLauncher extends Launcher {
   private final HashSet<Handle> pins;
 
   public LocalLauncher(@NonNull final Context context) {
-    super(
-      context,
-      /* searchIndexName = */ "local-launcher-search-index-" + randomUUID(),
-      Handle.createSamples()
-    );
+    super(context, Handle.createSamples());
     this.pins = new HashSet<>();
   }
 
@@ -88,6 +87,11 @@ public final class LocalLauncher extends Launcher {
           didUnpin = true;
       return didUnpin;
     }
+  }
+
+  @Override
+  protected SearchSession createSearchSession(@Nullable final Context context) {
+    return new LocalSearchSession();
   }
 
   @Override

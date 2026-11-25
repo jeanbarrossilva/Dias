@@ -27,7 +27,8 @@ import androidx.annotation.RestrictTo;
 
 import com.jeanbarrossilva.dias.launcher.Handle;
 import com.jeanbarrossilva.dias.launcher.Launcher;
-import com.jeanbarrossilva.dias.launcher.LocalLauncher;
+import com.jeanbarrossilva.dias.launcher.SearchSession;
+import com.jeanbarrossilva.dias.launcher.local.LocalLauncher;
 import com.jeanbarrossilva.dias.launcher.system.persistence.PinDatabase;
 
 import org.agrona.collections.IntHashSet;
@@ -66,15 +67,26 @@ import org.agrona.collections.IntHashSet;
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public final class SystemLauncher extends Launcher {
   private final PinDatabase pinDatabase;
+  private final String searchIndexName;
 
+  /// Instantiates a system launcher.
+  ///
+  /// @param context Context through which information about installed
+  ///   applications are queried and parsed into handles.
+  /// @param pinDatabase Database for persisting pinned handles.
+  /// @param handles Unique handles to all applications visible to the user,
+  ///   sorted by label.
+  /// @param searchIndexName Name of the index in which info about each handle,
+  ///   tailored for a session, is persisted.
   public SystemLauncher(
     @Nullable final Context context,
     @NonNull final PinDatabase pinDatabase,
     @NonNull final String searchIndexName,
     @NonNull final Handle[] handles
   ) throws NullPointerException {
-    super(context, searchIndexName, handles);
+    super(context, handles);
     this.pinDatabase = requireNonNull(pinDatabase, "pinDatabase");
+    this.searchIndexName = requireNonNull(searchIndexName, "searchIndexName");
   }
 
   @NonNull
@@ -115,6 +127,11 @@ public final class SystemLauncher extends Launcher {
     return (pinning.arePinned()
       ? getPinDao().insert(ids)
       : getPinDao().delete(ids)) > 0;
+  }
+
+  @Override
+  protected SearchSession createSearchSession(@Nullable Context context) {
+    return new SystemSearchSession(context, searchIndexName);
   }
 
   @Override

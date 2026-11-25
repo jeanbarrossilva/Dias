@@ -27,6 +27,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.collection.MutableObjectIntMap;
 
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
+import com.jeanbarrossilva.dias.launcher.local.LocalLauncher;
 import com.jeanbarrossilva.dias.launcher.system.SystemLauncher;
 import com.jeanbarrossilva.dias.launcher.util.IntHashSets;
 import com.jeanbarrossilva.dias.launcher.installation.InstallationChangeReceiver;
@@ -56,7 +57,6 @@ import static com.jeanbarrossilva.dias.launcher.util.Arrays.intersection;
 public abstract class Launcher implements Closeable {
   private final WeakReference<Context> contextRef;
   private final InstallationChangeReceiver installationChangeReceiver;
-  private final String searchIndexName;
   private Handle[] handles;
   private final MutableObjectIntMap<String> indexing;
   private final HashMap<UUID, SearchSession> searching;
@@ -170,8 +170,6 @@ public abstract class Launcher implements Closeable {
    *
    * @param context Context through which information about installed
    *   applications are queried and parsed into handles.
-   * @param searchIndexName Name of the index in which info about each handle,
-   *   tailored for a session, is persisted.
    * @param handles Unique handles to all applications visible to the user,
    *   sorted by label.
    * @see SearchSession
@@ -180,13 +178,11 @@ public abstract class Launcher implements Closeable {
    */
   @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
   @SuppressWarnings("KotlinInternalInJava")
-  public Launcher(
+  protected Launcher(
     @Nullable final Context context,
-    @NonNull final String searchIndexName,
     @NonNull final Handle[] handles
   ) throws NullPointerException {
     this.contextRef = new WeakReference<>(context);
-    this.searchIndexName = searchIndexName;
     this.handles = handles;
     this.indexing = new MutableObjectIntMap<>(handles.length);
     for (int index = 0; index < handles.length; index++)
@@ -363,15 +359,15 @@ public abstract class Launcher implements Closeable {
    * <p>
    * To free resources, end the session after its use.
    *
-   * @return The started session, or {@code null} if the context has been
-   *   garbage-collected or is null.
+   * @return The started session, or {@code null} if a context is required but
+   *   the given one has been garbage-collected or is null.
    * @see #endSearchSession(SearchSession)
    */
   @Nullable
   public final SearchSession startSearchSession() throws NullPointerException {
     try {
       final Context context = getContext();
-      final var result = new SearchSession(context, searchIndexName);
+      final var result = createSearchSession(context);
       result.sync(context, handles);
       searching.put(result.id, result);
       return result;
@@ -570,6 +566,15 @@ public abstract class Launcher implements Closeable {
   ///   which was intended. `true` denotes that the call to this function
   ///   changed the launcher's state, while `false` implies the opposite.
   protected abstract boolean onPinning(@NonNull final Pinning pinning);
+
+  /**
+   * Instantiates a search session appropriate for this launcher.
+   *
+   * @param context Context in which the session will be created.
+   */
+  protected abstract SearchSession createSearchSession(
+    @Nullable final Context context
+  );
 
   /// Callback called once this launcher gets closed.
   ///
