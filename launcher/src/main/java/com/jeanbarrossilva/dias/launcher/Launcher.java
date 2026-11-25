@@ -1,3 +1,19 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Dias. If not, see https://www.gnu.org/licenses.
+ */
+
 package com.jeanbarrossilva.dias.launcher;
 
 import android.content.ActivityNotFoundException;
@@ -11,9 +27,10 @@ import androidx.annotation.VisibleForTesting;
 import androidx.collection.MutableObjectIntMap;
 
 import com.jeanbarrossilva.OneTimeCopyOnWriteArrayList;
+import com.jeanbarrossilva.dias.launcher.system.SystemLauncher;
 import com.jeanbarrossilva.dias.launcher.util.IntHashSets;
 import com.jeanbarrossilva.dias.launcher.installation.InstallationChangeReceiver;
-import com.jeanbarrossilva.dias.launcher.persistence.PinDatabase;
+import com.jeanbarrossilva.dias.launcher.system.persistence.PinDatabase;
 
 import org.agrona.collections.IntHashSet;
 import org.jetbrains.annotations.NotNull;
@@ -29,31 +46,77 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-import static androidx.room.Room.inMemoryDatabaseBuilder;
 import static com.jeanbarrossilva.dias.launcher.util.Arrays.intersection;
-import static java.util.Arrays.stream;
-import static java.util.Objects.hash;
-import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 
 /**
  * View of both the homescreen and the drawer. Although they're shown separately
  * to the user, this is the main model of Dias and joins both concepts, allowing
  * for every supported operation to be performed.
  */
-public final class Launcher implements Closeable {
+public abstract class Launcher implements Closeable {
   private final WeakReference<Context> contextRef;
   private final InstallationChangeReceiver installationChangeReceiver;
-  private final PinDatabase pinDatabase;
   private final String searchIndexName;
   private Handle[] handles;
   private final MutableObjectIntMap<String> indexing;
   private final HashMap<UUID, SearchSession> searching;
   private Consumer<Pinning> onPinningListener;
 
-  private static final Intent QUERY_INTENT = Handle.createQueryIntent();
-  private static final String SAMPLE_SEARCH_INDEX_NAME =
-    "sample-launcher-search-index-" + randomUUID();
+  /// Defines which handles will be in a launcher being instantiated: ones to
+  /// the actual apps installed on the device; or ones to sample, potentially
+  /// nonexistent apps, for demonstration purposes.
+  ///
+  /// @see Fetch
+  /// @see Sample
+  public static sealed abstract class SetupStrategy
+    permits SetupStrategy.Fetch, SetupStrategy.Sample {
+    private static final class Fetch extends SetupStrategy {
+      public static final Fetch INSTANCE = new Fetch();
+
+      private static final Intent HANDLE_QUERY_INTENT =
+        Handle.createQueryIntent();
+
+      @NonNull
+      @Override
+      Handle[] createHandles(@Nullable final Context context) {
+        return context == null || context.getPackageManager() == null
+          ? new Handle[0]
+          : Handle.queryAll(context.getPackageManager(), HANDLE_QUERY_INTENT)
+            .values()
+            .toArray(Handle[]::new);
+      }
+    }
+
+    private static final class Sample extends SetupStrategy {
+      private static final Sample INSTANCE = new Sample();
+
+      private Sample() {}
+
+      @NonNull
+      @Override
+      Handle[] createHandles(@Nullable final Context context) {
+        return Handle.createSamples();
+      }
+    }
+
+    @NonNull
+    abstract Handle[] createHandles(@Nullable final Context context);
+
+    /// Strategy for configuring a launcher with handles to apps installed on
+    /// the device.
+    @NonNull
+    public static SetupStrategy fetch() {
+      return Fetch.INSTANCE;
+    }
+
+    /// Strategy for configuring a launcher with sample handles, to apps that
+    /// might not be installed on the device, for mere demonstration purposes
+    /// (e.g., UI previews and tests).
+    @NonNull
+    public static SetupStrategy sample() {
+      return Sample.INSTANCE;
+    }
+  }
 
   /**
    * Exception thrown whenever handles that don't belong to a launcher are
@@ -82,83 +145,47 @@ public final class Launcher implements Closeable {
     }
   }
 
-  /**
-   * Relation between indices of handles and whether those handles are pinned.
-   * Particularly useful when listening to calls to {@link #pin(String)} and
-   * {@link #unpin(String)}.
-   */
-  public static final class Pinning {
-    /** Indices of handle that have been pinned or unpinned. */
-    @NonNull final IntHashSet indices;
+    /// Relation between indices of handles and whether those handles are pinned.
+    /// Particularly useful when listening to calls to {@link #pin(String)} and
+    /// {@link #unpin(String)}.
+    ///
+    /// @param indices  Indices of handle that have been pinned or unpinned.
+    /// @param arePinned  Whether the handles at the given indices is pinned.
+    public record Pinning(
+      @NonNull
+      @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+      IntHashSet indices,
 
-    /** Whether the handles at the given indices is pinned. */
-    final boolean arePinned;
-
-    public Pinning(@NonNull final IntHashSet indices, final boolean arePinned) {
-      this.indices = indices;
-      this.arePinned = arePinned;
-    }
-
+      @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+      boolean arePinned
+    ) {
     @Override
-    public boolean equals(@Nullable final Object obj) {
-      return obj instanceof Pinning typedObj
-        && indices.equals(typedObj.indices)
-        && arePinned == typedObj.arePinned;
+      public String toString() {
+        return "Pinning[indices=" + indices + ", arePinned=" + arePinned + ']';
+      }
     }
-
-    @Override
-    public int hashCode() {
-      return hash(indices, arePinned);
-    }
-
-    @Override
-    public String toString() {
-      return "Pinning(indices=" + indices + ", arePinned=" + arePinned + ')';
-    }
-  }
 
   /**
-   * Instantiates a launcher containing handles to every user-visible installed
-   * application on the device.
+   * Instantiates a launcher.
    *
    * @param context Context through which information about installed
    *   applications are queried and parsed into handles.
-   * @param pinDatabase Database for persisting pinned handles.
    * @param searchIndexName Name of the index in which info about each handle,
    *   tailored for a session, is persisted.
+   * @param handles Unique handles to all applications visible to the user,
+   *   sorted by label.
    * @see SearchSession
-   * @throws NullPointerException If the pin database or the name of the search
-   *   index is {@code null}.
+   * @throws NullPointerException If the pin database, the search index name,
+   *   the name of the search index or the handle array is {@code null}.
    */
-  public Launcher(
-    final Context context,
-    final PinDatabase pinDatabase,
-    final String searchIndexName
-  )
-    throws NullPointerException {
-    this(
-      context,
-      pinDatabase,
-      searchIndexName,
-      context == null || context.getPackageManager() == null
-        ? new Handle[0]
-        : Handle.queryAll(context.getPackageManager(), QUERY_INTENT)
-          .values()
-          .toArray(Handle[]::new)
-    );
-  }
-
+  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
   @SuppressWarnings("KotlinInternalInJava")
-  @VisibleForTesting
   public Launcher(
-    final Context context,
-    final PinDatabase pinDatabase,
-    final String searchIndexName,
-    final Handle[] handles
-  )
-    throws NullPointerException {
+    @Nullable final Context context,
+    @NonNull final String searchIndexName,
+    @NonNull final Handle[] handles
+  ) throws NullPointerException {
     this.contextRef = new WeakReference<>(context);
-    this.pinDatabase = requireNonNull(pinDatabase, "pinDatabase");
     this.searchIndexName = searchIndexName;
     this.handles = handles;
     this.indexing = new MutableObjectIntMap<>(handles.length);
@@ -179,13 +206,7 @@ public final class Launcher implements Closeable {
             for (final int index: diff.indices)
               this.indexing.removeValueAt(index);
             unpin(
-              Set.of(
-                intersection(
-                  this.pinDatabase.getDao().selectAllIDs(),
-                  diff.handleIDs,
-                  String[].class
-                )
-              ),
+              Set.of(intersection(getPinIDs(), diff.handleIDs, String[].class)),
               IntHashSets.of(diff.indices)
             );
           }
@@ -206,7 +227,7 @@ public final class Launcher implements Closeable {
    * by label.
    */
   @NonNull
-  public List<Handle> getHandles() {
+  public final List<Handle> getHandles() {
     return new OneTimeCopyOnWriteArrayList<>(
                                      handles,
       /* isImmutableTreeSetLike = */ true
@@ -220,7 +241,7 @@ public final class Launcher implements Closeable {
    * #getHandles()} results in a list containing at least one handle; otherwise,
    * that list will be empty.
    */
-  public boolean hasHandles() {
+  public final boolean hasHandles() {
     return handles.length > 0;
   }
 
@@ -234,8 +255,8 @@ public final class Launcher implements Closeable {
    * array's contents differ from those of the list returned by {@link
    * #getHandles()}.
    */
-  public boolean hasPins() {
-    final int pinCount = pinDatabase.getDao().count();
+  public final boolean hasPins() {
+    final int pinCount = countPins();
     return pinCount > 0 && pinCount < handles.length;
   }
 
@@ -245,11 +266,7 @@ public final class Launcher implements Closeable {
    * @see #pin(String)
    */
   @NonNull
-  public Handle[] findPins() {
-    return stream(pinDatabase.getDao().selectAll())
-      .map(pin -> pin.toHandle(this))
-      .toArray(Handle[]::new);
-  }
+  public abstract Handle[] findPins();
 
   /**
    * Returns the label of the handle identified by the given ID.
@@ -259,7 +276,7 @@ public final class Launcher implements Closeable {
    *   launcher.
    */
   @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-  public String label(final String id) throws HandleNotFoundException {
+  public final String label(final String id) throws HandleNotFoundException {
     return get(id).label;
   }
 
@@ -271,13 +288,14 @@ public final class Launcher implements Closeable {
    * @throws HandleNotFoundException If the handle doesn't belong to this
    *   launcher.
    */
-  public void pin(final String id) throws HandleNotFoundException {
+  public final void pin(final String id) throws HandleNotFoundException {
     assertContains(id);
-    final boolean didPin = pinDatabase.getDao().insert(id);
-    if (onPinningListener == null || !didPin)
-      return;
     final var pinning = new Pinning(IntHashSets.of(getIndex(id)), true);
-    onPinningListener.accept(pinning);
+    final boolean didPin = onPinning(pinning);
+    if (!didPin)
+      return;
+    if (onPinningListener != null)
+      onPinningListener.accept(pinning);
   }
 
   /**
@@ -288,14 +306,14 @@ public final class Launcher implements Closeable {
    * @throws HandleNotFoundException If a handle doesn't belong to this
    *   launcher.
    */
-  public void pin(Set<String> ids) throws HandleNotFoundException {
+  public final void pin(Set<String> ids) throws HandleNotFoundException {
     assertContainsAll(ids);
-    final boolean didPin =
-      pinDatabase.getDao().insert(ids.toArray(new String[0])) > 0;
-    if (onPinningListener == null || !didPin)
-      return;
     final var pinning = new Pinning(getIndices(ids), true);
-    onPinningListener.accept(pinning);
+    final boolean didPin = onPinning(pinning);
+    if (!didPin)
+      return;
+    if (onPinningListener != null)
+      onPinningListener.accept(pinning);
   }
 
   /**
@@ -306,14 +324,15 @@ public final class Launcher implements Closeable {
    * @throws HandleNotFoundException If the handle doesn't belong to this
    *   launcher.
    */
-  public void unpin(final String id) throws HandleNotFoundException {
+  public final void unpin(final String id) throws HandleNotFoundException {
     assertContains(id);
-    final boolean didUnpin = pinDatabase.getDao().delete(id);
-    if (onPinningListener == null || !didUnpin)
-      return;
     final int index = getIndex(id);
     final var pinning = new Pinning(IntHashSets.of(index), false);
-    onPinningListener.accept(pinning);
+    final boolean didUnpin = onPinning(pinning);
+    if (!didUnpin)
+      return;
+    if (onPinningListener != null)
+      onPinningListener.accept(pinning);
   }
 
   /**
@@ -323,9 +342,7 @@ public final class Launcher implements Closeable {
    * @return {@code true} if the handle belongs to this launcher and is pinned;
    *   otherwise, {@code false}.
    */
-  public boolean isPinned(final String id) {
-    return pinDatabase.getDao().isPinned(id);
-  }
+  public abstract boolean isPinned(@Nullable final String id);
 
   /**
    * Unpins the pinned handles at each given indices.
@@ -335,7 +352,7 @@ public final class Launcher implements Closeable {
    * @throws HandleNotFoundException If a handle doesn't belong to this
    *   launcher.
    */
-  public void unpin(final Set<String> ids) throws HandleNotFoundException {
+  public final void unpin(final Set<String> ids) throws HandleNotFoundException {
     unpin(ids, getIndices(ids));
   }
 
@@ -351,7 +368,7 @@ public final class Launcher implements Closeable {
    * @see #endSearchSession(SearchSession)
    */
   @Nullable
-  public SearchSession startSearchSession() throws NullPointerException {
+  public final SearchSession startSearchSession() throws NullPointerException {
     try {
       final Context context = getContext();
       final var result = new SearchSession(context, searchIndexName);
@@ -369,7 +386,9 @@ public final class Launcher implements Closeable {
    * @param searchSession Session to end.
    * @see #startSearchSession()
    */
-  public void endSearchSession(@Nullable final SearchSession searchSession) {
+  public final void endSearchSession(
+    @Nullable final SearchSession searchSession
+  ) {
     if (searchSession == null)
       return;
     searchSession.end(getContext());
@@ -388,7 +407,7 @@ public final class Launcher implements Closeable {
    * @param listener Listener to be notified of changes regarding pinning
    *   handles.
    */
-  public void setOnPinningListener(
+  public final void setOnPinningListener(
     @NonNull final Consumer<@NotNull Pinning> listener
   ) {
     if (Objects.equals(onPinningListener, listener))
@@ -406,27 +425,25 @@ public final class Launcher implements Closeable {
   }
 
   /**
-   * Clears all tables of the underlying database.
+   * Unpins every handle that's been pinned in this launcher.
    * <p>
    * <b>WARNING</b>: All pins will be lost. This is a destructive operation and
    * cannot be undone.
    *
    */
-  public void clear() {
-    pinDatabase.clearAllTables();
-  }
+  public abstract void clear();
 
   /**
-   * Removes the on-pinning listener, closes the connection to the underlying
-   * database and ends all search sessions started in this launcher.
+   * Removes the on-pinning listener and ends all search sessions started in
+   * this launcher.
    *
    * @see #setOnPinningListener(Consumer)
    * @see #startSearchSession()
    */
   @Override
-  public void close() {
+  public final void close() {
     final Context context = getContext();
-    pinDatabase.close();
+    onClose();
     if (context != null)
       context.unregisterReceiver(installationChangeReceiver);
     onPinningListener = null;
@@ -436,12 +453,44 @@ public final class Launcher implements Closeable {
 
   /// Returns the context being referenced by this launcher.
   @Nullable
-  public Context getContext() {
+  public final Context getContext() {
     return contextRef.get();
   }
 
+   /// Instantiates a launcher that depends on features of an Android device and
+   /// contains handles to every user-visible installed application.
+   ///
+   /// @param context Context through which information about installed
+   ///   applications are queried and parsed into handles.
+   /// @param pinDatabase Database for persisting pinned handles.
+   /// @param searchIndexName Name of the index in which info about each handle,
+   ///   tailored for a session, is persisted.
+   /// @param setupStrategy How the launcher should be configured: should its
+   ///   handles be ones to the apps installed on the device
+   ///   ([fetched][SetupStrategy#fetch()]), or sample handles?
+   /// @see SearchSession
+   /// @throws NullPointerException If the pin database, the search index name
+   ///   or the name of the search index is {@code null}.
+  @NonNull
+   public static Launcher system(
+    @Nullable final Context context,
+    @NonNull final PinDatabase pinDatabase,
+    @NonNull final String searchIndexName,
+    @Nullable final SetupStrategy setupStrategy
+  ) {
+    return new SystemLauncher(
+      context,
+      pinDatabase,
+      searchIndexName,
+      setupStrategy == null
+        ? new Handle[0]
+        : setupStrategy.createHandles(context)
+    );
+  }
+
   /**
-   * Instantiates a launcher for demonstration purposes.
+   * Instantiates a launcher for demonstration purposes, with sample handles and
+   * in-memory storage.
    * <p>
    * <b>NOTE</b>: Trying to launch one of the returned launcher's handles will
    * likely throw an {@link ActivityNotFoundException}: they aren't intended to
@@ -449,20 +498,12 @@ public final class Launcher implements Closeable {
    *
    * @param context Context for the underlying in-memory database.
    * @see Handle#launch(Context)
-   * @throws NullPointerException If the context has been garbage-collected or
-   *   is {@code null}.
+   * @throws NullPointerException If the context is {@code null}.
    */
   @NonNull
-  public static Launcher sample(@NonNull final Context context)
+  public static Launcher local(@NonNull final Context context)
     throws NullPointerException {
-    return new Launcher(
-                          context,
-      /* pinDatabase = */ inMemoryDatabaseBuilder(context, PinDatabase.class)
-                            .allowMainThreadQueries()
-                            .build(),
-                          SAMPLE_SEARCH_INDEX_NAME,
-                          Handle.createSamples()
-    );
+    return new LocalLauncher(context);
   }
 
   /**
@@ -473,20 +514,79 @@ public final class Launcher implements Closeable {
    * @throws HandleNotFoundException If the handle doesn't belong to this
    *   launcher.
    */
+  @NonNull
   @VisibleForTesting
-  Handle get(final String id) throws HandleNotFoundException {
-    return handles[indexing.get(id)];
+  final Handle get(@Nullable final String id) throws HandleNotFoundException {
+    try {
+      return handles[indexing.get(id)];
+    } catch (final NoSuchElementException exception) {
+      throw new HandleNotFoundException(id);
+    }
   }
 
-  private void unpin(final Set<String> ids, final IntHashSet indices) throws
-    HandleNotFoundException {
+  /// Returns the internal array of handles.
+  protected final Handle[] getBackingHandles() {
+    return handles;
+  }
+
+  /// Tries to find the pins at each given index, with out-of-bounds indices or
+  /// ones of unpinned handles being mapped to `null` handles in the returned
+  /// array.
+  ///
+  /// @return The pins at the indices, in the same order as the indices
+  ///   themselves; or `null` if the index set is `null`.
+  @Nullable
+  protected final Handle[] getPins(@Nullable final IntHashSet indices) {
+    if (indices == null)
+      return null;
+    final var result = new Handle[indices.size()];
+    if (indices.isEmpty())
+      return result;
+    final IntHashSet.IntIterator indexIterator = indices.iterator();
+    int count = 0;
+    for (int index = indexIterator.nextValue();
+         indexIterator.hasNext();
+         index = indexIterator.nextValue(), count++) {
+      final Handle handle = handles[index];
+      if (isPinned(handle.id))
+        result[count] = handle;
+    }
+    return result;
+  }
+
+  /// Computes the amount of handles that are pinned. This is the length of the
+  /// array returned by a call to [#findPins()].
+  protected abstract int countPins();
+
+  /// Returns the ID of each pinned handle.
+  @NonNull
+  protected abstract String[] getPinIDs();
+
+  /// Toggles whether the specified handles are pinned: for a `true`
+  /// [Pinning#arePinned()], pins the handles; for a `false` one, unpins them.
+  ///
+  /// @param pinning Information about the handles whose pin will be toggled.
+  /// @return Whether the given handles' were pinned or unpinned, depending on
+  ///   which was intended. `true` denotes that the call to this function
+  ///   changed the launcher's state, while `false` implies the opposite.
+  protected abstract boolean onPinning(@NonNull final Pinning pinning);
+
+  /// Callback called once this launcher gets closed.
+  ///
+  /// @see close()
+  protected abstract void onClose();
+
+  private void unpin(
+    @NonNull final Set<String> ids,
+    @NonNull final IntHashSet indices
+  ) throws HandleNotFoundException {
     assertContainsAll(ids);
-    final String[] idsAsArray = ids.toArray(new String[0]);
-    final boolean didUnpin = pinDatabase.getDao().delete(idsAsArray) > 0;
-    if (onPinningListener == null || !didUnpin)
+    final Pinning pinning = new Pinning(indices, false);
+    final boolean didUnpin = onPinning(pinning);
+    if (!didUnpin)
       return;
-    final var pinning = new Pinning(indices, false);
-    onPinningListener.accept(pinning);
+    if (onPinningListener != null)
+      onPinningListener.accept(pinning);
   }
 
   private void assertContains(final String id) throws HandleNotFoundException {

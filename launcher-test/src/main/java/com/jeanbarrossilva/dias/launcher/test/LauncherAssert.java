@@ -1,4 +1,22 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program. If not, see https://www.gnu.org/licenses.
+ */
+
 package com.jeanbarrossilva.dias.launcher.test;
+
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractBooleanAssert;
@@ -13,6 +31,8 @@ import static com.jeanbarrossilva.dias.launcher.test.util.InstanceOfAssertFactor
 import static com.jeanbarrossilva.dias.launcher.test.util.InstanceOfAssertFactories.listFromArray;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 import static org.assertj.core.api.InstanceOfAssertFactories.list;
+
+import android.content.Context;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -53,7 +73,7 @@ public final class LauncherAssert
   /// @see Launcher#hasHandles()
   @NonNull
   public LauncherAssert hasHandles() {
-    assertThatHasHandles().isTrue();
+    createHasHandlesAssert().isTrue();
     return this;
   }
 
@@ -80,7 +100,7 @@ public final class LauncherAssert
     try {
       isNotNull();
       return MethodAssert.assertThat(Launcher.class, "findPins")
-                         .invokeAsync(actual())
+                         .invoke(actual())
                          .asInstanceOf(listFromArray(Handle[].class));
     } catch (final IllegalAccessException
                  | InvocationTargetException
@@ -121,8 +141,11 @@ public final class LauncherAssert
     final ListAssert<Handle> castResult;
     try {
       final ObjectAssert<Object> uncastResult =
-        MethodAssert.assertThat(SearchSession.class, "search", String.class)
-                    .invoke(session, query);
+        MethodAssert.assertThat(SearchSession.class,
+                                "search",
+                                Context.class,
+                                String.class)
+                    .invoke(session, getApplicationContext(), query);
       castResult = uncastResult.actual() == null
         ? new ListAssert<>((List<Handle>) null)
         : uncastResult.asInstanceOf(list(Handle.class));
@@ -169,7 +192,7 @@ public final class LauncherAssert
     return new LauncherAssert(actual);
   }
 
-  private AbstractBooleanAssert<?> assertThatHasHandles()
+  private AbstractBooleanAssert<?> createHasHandlesAssert()
     throws AssertionError {
     try {
       return MethodAssert.assertThat(Launcher.class, "hasHandles")
@@ -185,7 +208,7 @@ public final class LauncherAssert
   private AbstractBooleanAssert<?> createHasPinsAssert() throws AssertionError {
     try {
       return MethodAssert.assertThat(Launcher.class, "hasPins")
-                         .invokeAsync(isNotNull().actual())
+                         .invoke(isNotNull().actual())
                          .asInstanceOf(BOOLEAN);
     } catch (final IllegalAccessException
                  | InvocationTargetException
@@ -198,7 +221,7 @@ public final class LauncherAssert
     throws AssertionError {
     try {
       return MethodAssert.assertThat(Launcher.class, "isPinned", String.class)
-                         .invokeAsync(isNotNull().actual(), id)
+                         .invoke(isNotNull().actual(), id)
                          .asInstanceOf(BOOLEAN);
     } catch (final IllegalAccessException
                  | InvocationTargetException

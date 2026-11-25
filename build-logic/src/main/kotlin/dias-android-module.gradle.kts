@@ -1,18 +1,17 @@
 /*
  * Copyright © 2026 Jean Silva
  *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
  * Foundation, either version 2 of the License, or (at your option) any later
  * version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
- * details.
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program. If not, see https://www.gnu.org/licenses.
+ * Dias. If not, see https://www.gnu.org/licenses.
  */
 
 @file:Suppress("NotShrinkingResources")
@@ -23,7 +22,7 @@ import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.JavaVersion
 
 private val majorCompileSdkVersion
-  get() = getCompileSdkVersion("major")
+  get() = getSdkVersion("compile-major")
 
 private val javaVersion
   get() = libs
@@ -33,15 +32,15 @@ private val javaVersion
     .replaceFirst('.', '_')
     .let { JavaVersion.valueOf("VERSION_$it") }
 
-private fun getCompileSdkVersion(suffix: String) = libs
-  .findVersion("android-sdk-compile-$suffix")
+private fun getSdkVersion(suffix: String) = libs
+  .findVersion("android-sdk-$suffix")
   .get()
   .requiredVersion
   .toInt()
 
 extensions.configure(CommonExtension::class.java) {
   defaultConfig.apply {
-    minSdk = majorCompileSdkVersion
+    minSdk = getSdkVersion("min")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -51,7 +50,7 @@ extensions.configure(CommonExtension::class.java) {
 
   compileSdk {
     version = release(majorCompileSdkVersion) {
-      minorApiLevel = getCompileSdkVersion("minor")
+      minorApiLevel = getSdkVersion("compile-minor")
     }
   }
 

@@ -1,18 +1,17 @@
 /*
  * Copyright © 2026 Jean Silva
  *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
  * Foundation, either version 2 of the License, or (at your option) any later
  * version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
- * details.
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program. If not, see https://www.gnu.org/licenses.
+ * Dias. If not, see https://www.gnu.org/licenses.
  */
 
 package com.jeanbarrossilva.dias.app.feature.home
@@ -63,8 +62,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import br.com.orcinus.orca.platform.focus.rememberImmediateFocusRequester
 import com.jeanbarrossilva.dias.R
-import com.jeanbarrossilva.dias.app.ui.DiasTheme
-import com.jeanbarrossilva.dias.app.ui.FloatingActionButton
+import com.jeanbarrossilva.dias.app.ui.ChangeEffect
+import com.jeanbarrossilva.dias.app.ui.theme.DiasTheme
+import com.jeanbarrossilva.dias.app.ui.theme.FloatingActionButton
 import com.jeanbarrossilva.dias.launcher.Launcher
 
 private const val ModeSwitchTransitionKey = 0
@@ -85,6 +85,11 @@ private fun Home(
 ) {
   val handles by rememberSaveable(launcher, mode) {
     mutableStateOf(mode.getHandles(launcher))
+  }
+
+  ChangeEffect(mode) { previous, current ->
+    if (!current::class.isInstance(previous))
+      previous.close()
   }
 
   BackHandler(enabled = mode is Mode.Search) {
@@ -156,7 +161,7 @@ private fun Home(
         horizontalAlignment = Alignment.End
       ) {
         itemsIndexed(handles, key = { _, handle -> handle.label }) {
-            index, handle ->
+          index, handle ->
           Text(
             handle.label,
             Modifier.animateItem().clickable(interactionSource = null) {
@@ -181,14 +186,14 @@ private fun Home(
 @Composable
 @Preview
 private fun HomeInPinnedModePreview() = DiasTheme {
-  Home(Launcher.sample(LocalContext.current), Mode.Pinned, onModeChange = {})
+  Home(Launcher.local(LocalContext.current), Mode.Pinned, onModeChange = {})
 }
 
 @Composable
 @Preview
 private fun HomeInSearchModePreview() = DiasTheme {
   Home(
-    Launcher.sample(LocalContext.current),
+    Launcher.local(LocalContext.current),
     Mode.Search(query = ""),
     onModeChange = {}
   )
