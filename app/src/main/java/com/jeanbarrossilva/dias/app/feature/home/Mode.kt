@@ -18,6 +18,8 @@ package com.jeanbarrossilva.dias.app.feature.home
 
 import android.os.Parcel
 import android.os.Parcelable
+import android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
@@ -35,7 +37,8 @@ import java.util.Arrays.asList
 import kotlin.collections.orEmpty
 
 @Stable
-internal sealed class Mode: Closeable, Parcelable {
+@VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+sealed class Mode: Closeable, Parcelable {
   @Immutable
   @Parcelize
   object Pinned: Mode() {
@@ -47,9 +50,9 @@ internal sealed class Mode: Closeable, Parcelable {
   }
 
   class Search private constructor(
-    private var launcherState: MutableState<Launcher?>,
+    launcher: Launcher?,
     private var session: SearchSession,
-    private var queryState: MutableState<String>,
+    query: String,
     private var results: List<Handle>?
   ): Mode() {
     var query
@@ -59,13 +62,14 @@ internal sealed class Mode: Closeable, Parcelable {
         launcher?.let(::getHandles)
       }
 
-    private var launcher by launcherState
+    private var launcher by mutableStateOf(launcher)
+    private var queryState = mutableStateOf(query)
     private val handles = mutableStateListOf<Handle>()
 
     constructor(launcher: Launcher): this(
-      mutableStateOf(launcher),
+      launcher,
       launcher.startSearchSession(),
-      queryState = mutableStateOf(""),
+      query = "",
       results = emptyList()
     )
 
@@ -83,6 +87,8 @@ internal sealed class Mode: Closeable, Parcelable {
       dest.writeParcelable(session, flags)
       dest.writeString(query)
       dest.writeParcelableList(results, flags)
+      if (flags == PARCELABLE_WRITE_RETURN_VALUE)
+        launcher?.endSearchSession(session)
     }
 
     override fun close() {
@@ -97,14 +103,14 @@ internal sealed class Mode: Closeable, Parcelable {
       val CREATOR = object: Parcelable.Creator<Search> {
         override fun createFromParcel(source: Parcel?): Search? {
           return Search(
-            launcherState = mutableStateOf(null),
+            launcher = null,
             session = source
               ?.readParcelable(
                 SearchSession::class.java.classLoader,
                 SearchSession::class.java
               )
               ?: return null,
-            queryState = mutableStateOf(source.readString() ?: return null),
+            query = source.readString() ?: return null,
             results = source.createTypedArrayList(Handle.CREATOR) ?: return null
           )
         }
