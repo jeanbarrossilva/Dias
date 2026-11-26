@@ -1,4 +1,20 @@
-package com.jeanbarrossilva.dias.launcher.persistence;
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Dias. If not, see https://www.gnu.org/licenses.
+ */
+
+package com.jeanbarrossilva.dias.launcher.system.persistence;
 
 import androidx.room.Database;
 import androidx.room.Insert;
@@ -6,6 +22,7 @@ import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 import androidx.room.RoomDatabase;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Arrays.stream;
 
 @Database(entities = {Pin.class}, exportSchema = false, version = 1)
@@ -46,7 +63,7 @@ public abstract class PinDatabase extends RoomDatabase {
 
     public final int insert(final String... ids) {
       final var pins = stream(ids).map(Pin::new).toArray(Pin[]::new);
-      return insert(pins).length;
+      return toIntExact(stream(insert(pins)).filter(n -> n >= 0).count());
     }
 
     public final boolean delete(final String id) {

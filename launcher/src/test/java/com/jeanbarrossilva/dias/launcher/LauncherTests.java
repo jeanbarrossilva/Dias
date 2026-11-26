@@ -1,10 +1,29 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Dias. If not, see https://www.gnu.org/licenses.
+ */
+
 package com.jeanbarrossilva.dias.launcher;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 
+import static com.jeanbarrossilva.dias.launcher.Launcher.system;
 import static com.jeanbarrossilva.dias.launcher.test.LauncherAssert.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.jeanbarrossilva.dias.launcher.Launcher.SetupStrategy;
+import com.jeanbarrossilva.dias.launcher.system.persistence.PinDatabase;
 import com.jeanbarrossilva.dias.launcher.test.LauncherAssert;
 import com.jeanbarrossilva.dias.launcher.util.IntHashSets;
 
@@ -23,9 +42,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.stream;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+
+import android.content.Context;
+
+import androidx.annotation.NonNull;
+import androidx.room.Room;
 
 @RunWith(Enclosed.class)
 public class LauncherTests {
@@ -34,7 +59,7 @@ public class LauncherTests {
     @Test
     public void deregistersOnPinningListener() {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final Handle pin = launcher.getHandles().getFirst();
       final var listenerNotificationCount = new AtomicInteger();
       launcher.setOnPinningListener(
@@ -52,7 +77,7 @@ public class LauncherTests {
   public static final class PinningTests {
     @Test
     public void handlesAreUnpinnedByDefault() {
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final LauncherAssert launcherAssert = assertThat(launcher);
       for (final Handle handle: launcher.getHandles())
         launcherAssert.hasUnpinned(handle.id);
@@ -65,7 +90,7 @@ public class LauncherTests {
     @Test
     public void pinsOne() {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final Handle pin = launcher.getHandles().getFirst();
       executor.submit(() -> launcher.pin(pin.id));
       executor.close();
@@ -81,7 +106,7 @@ public class LauncherTests {
     @Test
     public void pinsOneIdempotently() {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final List<Handle> handles = launcher.getHandles();
       final Handle pin = handles.getFirst();
       executor.submit(() -> {
@@ -101,7 +126,7 @@ public class LauncherTests {
     @Test
     public void pinsVarious() {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final List<Handle> handles = launcher.getHandles();
       final List<String> pinIDs = handles.stream()
                                          .map(handle -> handle.id)
@@ -122,7 +147,7 @@ public class LauncherTests {
     @Test
     public void pinsVariousIdempotently() {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final List<Handle> handles = launcher.getHandles();
       final List<String> handleIDs = handles.stream()
                                             .map(handle -> handle.id)
@@ -143,7 +168,7 @@ public class LauncherTests {
     @Test
     public void unpinsOne() {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final List<String> pinningIDs = launcher.getHandles()
                                               .stream()
                                               .map(handle -> handle.id)
@@ -173,7 +198,7 @@ public class LauncherTests {
     @Test
     public void unpinsVarious() {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final List<String> pinningHandleIDs = launcher.getHandles()
                                                     .stream()
                                                     .map(handle -> handle.id)
@@ -206,7 +231,7 @@ public class LauncherTests {
              InvocationTargetException,
              NoSuchMethodException {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final Handle pin = launcher.getHandles().getFirst();
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       launcher.setOnPinningListener(pinningRef::set);
@@ -225,7 +250,7 @@ public class LauncherTests {
              InvocationTargetException,
              NoSuchMethodException {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final Set<String> pinIDs = launcher.getHandles()
                                          .stream()
                                          .map(handle -> handle.id)
@@ -248,7 +273,7 @@ public class LauncherTests {
              InvocationTargetException,
              NoSuchMethodException {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final Handle pin = launcher.getHandles().getFirst();
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       executor.submit(() -> launcher.pin(pin.id));
@@ -268,7 +293,7 @@ public class LauncherTests {
              InvocationTargetException,
              NoSuchMethodException {
       final ExecutorService executor = createExecutor();
-      final Launcher launcher = Launcher.sample(getApplicationContext());
+      final Launcher launcher = createLauncher();
       final Set<String> pinningIDs = launcher.getHandles()
                                              .stream()
                                              .map(handle -> handle.id)
@@ -285,6 +310,19 @@ public class LauncherTests {
       launcher.clear();
       launcher.close();
     }
+  }
+
+  @NonNull
+  private static Launcher createLauncher() {
+    final Context context = getApplicationContext();
+    return system(
+      context,
+      Room.inMemoryDatabaseBuilder(context, PinDatabase.class)
+        .allowMainThreadQueries()
+        .build(),
+      /* searchIndexName = */ "test-launcher-search-index-" + randomUUID(),
+      SetupStrategy.sample()
+    );
   }
 
   private static ExecutorService createExecutor() {

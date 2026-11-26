@@ -1,3 +1,19 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Dias. If not, see https://www.gnu.org/licenses.
+ */
+
 package com.jeanbarrossilva.dias.launcher.util;
 
 import org.junit.Test;
@@ -6,6 +22,7 @@ import org.junit.runner.RunWith;
 
 import static com.jeanbarrossilva.dias.launcher.util.Arrays.copyOf;
 import static com.jeanbarrossilva.dias.launcher.util.Arrays.difference;
+import static com.jeanbarrossilva.dias.launcher.util.Arrays.indexOf;
 import static com.jeanbarrossilva.dias.launcher.util.Arrays.intersection;
 import static com.jeanbarrossilva.dias.launcher.util.Arrays.isNullOrEmpty;
 import static com.jeanbarrossilva.dias.launcher.util.Arrays.union;
@@ -66,6 +83,23 @@ public final class ArraysTests {
         )
       )
         .containsExactly(1, 6);
+    }
+  }
+
+  public static final class IndexOfTests {
+    @Test
+    public void returnsNegativeOneWhenArrayIsNull() {
+      assertThat(indexOf(null, 0)).isEqualTo(-1);
+    }
+
+    @Test
+    public void returnsNegativeOneWhenKeyIsNotFound() {
+      assertThat(indexOf(new Integer[]{1, 2, 3}, 4)).isEqualTo(-1);
+    }
+
+    @Test
+    public void returnsIndexOfKeyInTheArray() {
+      assertThat(indexOf(new Integer[]{1, 2, 3}, 2)).isEqualTo(1);
     }
   }
 
