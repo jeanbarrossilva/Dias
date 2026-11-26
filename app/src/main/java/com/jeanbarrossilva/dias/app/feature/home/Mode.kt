@@ -50,7 +50,7 @@ internal sealed class Mode: Closeable, Parcelable {
     private var launcherState: MutableState<Launcher?>,
     private var session: SearchSession,
     private var queryState: MutableState<String>,
-    private var lastHandles: List<Handle>?
+    private var results: List<Handle>?
   ): Mode() {
     var query
       get() = queryState.value
@@ -66,7 +66,7 @@ internal sealed class Mode: Closeable, Parcelable {
       mutableStateOf(launcher),
       launcher.startSearchSession(),
       queryState = mutableStateOf(""),
-      lastHandles = emptyList()
+      results = emptyList()
     )
 
     override fun describeContents() = 0
@@ -75,21 +75,21 @@ internal sealed class Mode: Closeable, Parcelable {
       this.launcher = launcher
       val results = session.search(launcher.context, query).orEmpty()
       diff(handles, results)!!.applyToExisting(handles)
-      lastHandles = handles
+      this@Search.results = handles
       return handles
     }
 
     override fun writeToParcel(dest: Parcel, flags: Int) {
       dest.writeParcelable(session, flags)
       dest.writeString(query)
-      dest.writeParcelableList(lastHandles, flags)
+      dest.writeParcelableList(results, flags)
     }
 
     override fun close() {
       launcher?.endSearchSession(session)
       launcher = null
       queryState.value = ""
-      lastHandles = null
+      results = null
     }
 
     companion object {
@@ -105,8 +105,7 @@ internal sealed class Mode: Closeable, Parcelable {
               )
               ?: return null,
             queryState = mutableStateOf(source.readString() ?: return null),
-            lastHandles =
-              source.createTypedArrayList(Handle.CREATOR) ?: return null
+            results = source.createTypedArrayList(Handle.CREATOR) ?: return null
           )
         }
 
