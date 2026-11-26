@@ -33,7 +33,6 @@ android {
 }
 
 dependencies {
-  debugImplementation(libs.android.compose.ui.test.manifest)
   implementation(project(":launcher"))
   implementation(libs.android.activity.compose)
   implementation(libs.android.compose.material.icons)
@@ -42,7 +41,7 @@ dependencies {
   implementation(libs.android.constraintLayout)
   implementation(libs.android.material)
   implementation(libs.android.room.runtime)
-  testImplementation(libs.android.compose.ui.test.junit4)
+  implementation(libs.javaDiffUtils)
   testImplementation(libs.android.test.espresso.core)
   testImplementation(libs.assertJ)
   testImplementation(libs.jUnit4)

@@ -168,7 +168,7 @@ public abstract class SearchSession implements Parcelable {
     @Nullable final Context context,
     @NonNull final InstallationDiff diff,
     @NonNull final Handle[] handles
-  ) {
+  ) throws UncontextualizedException {
     this.handles = handles;
     if (diff.indices.length == 0)
       return;
@@ -254,7 +254,7 @@ public abstract class SearchSession implements Parcelable {
   protected abstract void onSync(
     @Nullable final Context context,
     @NonNull final InstallationDiff diff
-  );
+  ) throws UncontextualizedException;
 
    /// Callback called whenever the user requests to search for handles with a
    /// non-blank query.
@@ -267,7 +267,7 @@ public abstract class SearchSession implements Parcelable {
   protected abstract List<Handle> onSearch(
     @Nullable final Context context,
     @NonNull final String query
-  );
+  ) throws UncontextualizedException;
 
   /// Normalizes a query, regardless of locale.
   ///
@@ -282,7 +282,8 @@ public abstract class SearchSession implements Parcelable {
   /// Callback called once this session is requested to be ended.
   ///
   /// @param context Context in which this session is ending.
-  protected abstract void onEnding(@Nullable final Context context);
+  protected abstract void onEnding(@Nullable final Context context)
+    throws UncontextualizedException;
 
    /// Returns whether this session has ended.
    ///

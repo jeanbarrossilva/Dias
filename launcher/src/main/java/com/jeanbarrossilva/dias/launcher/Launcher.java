@@ -363,17 +363,13 @@ public abstract class Launcher implements Closeable {
    *   the given one has been garbage-collected or is null.
    * @see #endSearchSession(SearchSession)
    */
-  @Nullable
-  public final SearchSession startSearchSession() throws NullPointerException {
-    try {
-      final Context context = getContext();
-      final var result = createSearchSession(context);
-      result.sync(context, handles);
-      searching.put(result.id, result);
-      return result;
-    } catch (final SearchSession.UncontextualizedException exception) {
-      return null;
-    }
+  @NonNull
+  public final SearchSession startSearchSession() {
+    final Context context = getContext();
+    final var result = createSearchSession(context);
+    result.sync(context, handles);
+    searching.put(result.id, result);
+    return result;
   }
 
   /**

@@ -192,7 +192,7 @@ public final class SystemSearchSession extends SearchSession {
   protected void onSync(
     @Nullable final Context context,
     @NonNull final InstallationDiff diff
-  ) {
+  ) throws UncontextualizedException {
     final AppSearchSession delegate = getDelegate(context);
     final Handle[] handles = getHandles();
     assert handles != null: "handles != null";
@@ -219,7 +219,7 @@ public final class SystemSearchSession extends SearchSession {
   protected List<Handle> onSearch(
     @Nullable final Context context,
     @NonNull String query
-  ) {
+  ) throws UncontextualizedException {
     final SearchResults wrapper = getDelegate(context).search(query, SPEC);
     final List<SearchResult> page = await(wrapper.getNextPageAsync());
     final List<Handle> result = page
@@ -242,7 +242,8 @@ public final class SystemSearchSession extends SearchSession {
 
   @Override
   @SuppressWarnings("ResultOfMethodCallIgnored")
-  protected void onEnding(@Nullable final Context context) {
+  protected void onEnding(@Nullable final Context context)
+    throws UncontextualizedException {
     final AppSearchSession delegate = getDelegate(context);
 
     @SuppressLint("RestrictedApi")
@@ -275,7 +276,7 @@ public final class SystemSearchSession extends SearchSession {
     @Nullable final Context context
   ) throws UncontextualizedException {
     try {
-      @SuppressWarnings("DataFlowIssue")
+      assert context != null: "context != null";
       final LocalStorage.SearchContext searchContext =
         new LocalStorage.SearchContext.Builder(context, indexName).build();
 
@@ -295,12 +296,13 @@ public final class SystemSearchSession extends SearchSession {
     }
   }
 
-  @SuppressWarnings("DataFlowIssue")
   private void clear(@NonNull final AppSearchSession delegate) {
     if (hasEnded())
       return;
+    final Handle[] handles = getHandles();
+    assert handles != null: "handles != null";
     awaitAll(
-      stream(getHandles())
+      stream(handles)
         .map(handle -> removeDocumentAsync(delegate, handle))
         .toArray(CompletableFuture[]::new)
     );

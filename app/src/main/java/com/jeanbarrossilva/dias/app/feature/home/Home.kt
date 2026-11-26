@@ -46,8 +46,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults.colors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -62,7 +64,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import br.com.orcinus.orca.platform.focus.rememberImmediateFocusRequester
 import com.jeanbarrossilva.dias.R
-import com.jeanbarrossilva.dias.app.ui.ChangeEffect
 import com.jeanbarrossilva.dias.app.ui.theme.DiasTheme
 import com.jeanbarrossilva.dias.app.ui.theme.FloatingActionButton
 import com.jeanbarrossilva.dias.launcher.Launcher
@@ -87,13 +88,12 @@ private fun Home(
     mutableStateOf(mode.getHandles(launcher))
   }
 
-  ChangeEffect(mode) { previous, current ->
-    if (!current::class.isInstance(previous))
-      previous.close()
-  }
-
   BackHandler(enabled = mode is Mode.Search) {
     onModeChange(Mode.Pinned)
+  }
+
+  DisposableEffect(mode) {
+    onDispose(mode::close)
   }
 
   SharedTransitionLayout {
@@ -104,7 +104,7 @@ private fun Home(
           when (mode) {
             is Mode.Pinned ->
               FloatingActionButton(
-                onClick = { onModeChange(Mode.Search(query = "")) },
+                onClick = { onModeChange(Mode.Search(launcher)) },
                 Modifier.sharedBounds(
                   rememberSharedContentState(ModeSwitchTransitionKey),
                   this,
@@ -121,7 +121,7 @@ private fun Home(
               BoxWithConstraints {
                 TextField(
                   mode.query,
-                  onValueChange = { onModeChange(mode.copy(query = it)) },
+                  onValueChange = { mode.query = it },
                   Modifier
                     .sharedBounds(
                       rememberSharedContentState(ModeSwitchTransitionKey),
@@ -155,7 +155,9 @@ private fun Home(
       }
     ) {
       LazyColumn(
-        Modifier.imeNestedScroll().fillMaxSize(),
+        Modifier
+          .imeNestedScroll()
+          .fillMaxSize(),
         contentPadding = PaddingValues(end = 24.dp) + it,
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.End
@@ -164,9 +166,11 @@ private fun Home(
           index, handle ->
           Text(
             handle.label,
-            Modifier.animateItem().clickable(interactionSource = null) {
-              launcher.context?.let(handle::launch)
-            },
+            Modifier
+              .animateItem()
+              .clickable(interactionSource = null) {
+                launcher.context?.let(handle::launch)
+              },
             textAlign = TextAlign.End,
             style = DiasTheme.Typography.bodyMediumEmphasized
           )
@@ -192,9 +196,8 @@ private fun HomeInPinnedModePreview() = DiasTheme {
 @Composable
 @Preview
 private fun HomeInSearchModePreview() = DiasTheme {
-  Home(
-    Launcher.local(LocalContext.current),
-    Mode.Search(query = ""),
-    onModeChange = {}
-  )
+  val context = LocalContext.current
+  val launcher = remember(context) { Launcher.local(context) }
+  val mode = remember(launcher) { Mode.Search(launcher) }
+  Home(launcher, mode, onModeChange = {})
 }
