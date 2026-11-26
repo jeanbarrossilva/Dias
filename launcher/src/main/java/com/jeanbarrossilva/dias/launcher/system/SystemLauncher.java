@@ -41,14 +41,14 @@ import org.agrona.collections.IntHashSet;
 /// launcher in which those handles were pinned. E.g.:
 ///
 /// ```java
-/// final var configStrategy = Launcher.ConfigStrategy.sample();
+/// final var setupStrategy = Launcher.SetupStrategy.sample();
 /// final var searchIndexName = "search-index"
-/// final var launcher1 = new Launcher.system(context, pinDatabase, searchIndexName, configStrategy);
+/// final var launcher1 = new Launcher.system(context, pinDatabase, searchIndexName, setupStrategy);
 /// final Handle pin = launcher.getHandles().getFirst();
-/// launcher1.pin(pin.id);
+/// launcher1.pin(pin.getID());
 /// launcher1.close();
-/// final var launcher2 = new Launcher.system(context, pinDatabase, searchIndexName, configStrategy);
-/// assertThat(launcher2).hasPinned(pin.id);
+/// final var launcher2 = new Launcher.system(context, pinDatabase, searchIndexName, setupStrategy);
+/// assertThat(launcher2).hasPinned(pin.getID());
 /// launcher2.close();
 /// ```
 ///
@@ -123,7 +123,7 @@ public final class SystemLauncher extends Launcher {
       pinning.indices().iterator();
     final var ids = new String[pinning.indices().size()];
     for (int index = 0; index < ids.length; index++)
-      ids[index] = getBackingHandles()[handleIndexIterator.nextValue()].id;
+      ids[index] = getBackingHandles()[handleIndexIterator.nextValue()].getID();
     return (pinning.arePinned()
       ? getPinDao().insert(ids)
       : getPinDao().delete(ids)) > 0;

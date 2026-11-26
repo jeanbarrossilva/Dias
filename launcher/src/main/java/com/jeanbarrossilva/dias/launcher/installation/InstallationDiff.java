@@ -64,7 +64,7 @@ public final class InstallationDiff {
    *       .toArray(String[]::new)}
    * </pre>
    *
-   * @see Handle#id
+   * @see Handle#getID()
    * @see Arrays#stream
    */
   public final String[] handleIDs;

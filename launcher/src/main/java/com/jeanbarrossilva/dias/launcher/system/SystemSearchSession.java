@@ -1,18 +1,17 @@
 /*
  * Copyright © 2026 Jean Silva
  *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
  * Foundation, either version 2 of the License, or (at your option) any later
  * version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
- * details.
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program. If not, see https://www.gnu.org/licenses.
+ * Dias. If not, see https://www.gnu.org/licenses.
  */
 
 package com.jeanbarrossilva.dias.launcher.system;
@@ -119,7 +118,13 @@ public final class SystemSearchSession extends SearchSession {
     private static final String NAMESPACE = "dias";
 
     public HandleDocument(final Handle handle, final int index) {
-      this(NAMESPACE, handle.id, handle.label, normalize(handle.label), index);
+      this(
+        NAMESPACE,
+        handle.getID(),
+        handle.getLabel(),
+        normalize(handle.getLabel()),
+        index
+      );
     }
 
     public HandleDocument(
@@ -348,7 +353,7 @@ public final class SystemSearchSession extends SearchSession {
   ) {
     final RemoveByDocumentIdRequest request =
       new RemoveByDocumentIdRequest.Builder(HandleDocument.NAMESPACE)
-        .addIds(handle.id)
+        .addIds(handle.getID())
         .build();
     return toCompletableFuture(delegate.removeAsync(request)).thenRun(NO_OP);
   }

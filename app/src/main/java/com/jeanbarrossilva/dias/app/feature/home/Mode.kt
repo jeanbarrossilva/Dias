@@ -21,7 +21,6 @@ import android.os.Parcelable
 import android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -32,6 +31,7 @@ import com.jeanbarrossilva.dias.launcher.Handle
 import com.jeanbarrossilva.dias.launcher.Launcher
 import com.jeanbarrossilva.dias.launcher.SearchSession
 import kotlinx.parcelize.Parcelize
+import kotlinx.parcelize.parcelableCreator
 import java.io.Closeable
 import java.util.Arrays.asList
 import kotlin.collections.orEmpty
@@ -111,7 +111,8 @@ sealed class Mode: Closeable, Parcelable {
               )
               ?: return null,
             query = source.readString() ?: return null,
-            results = source.createTypedArrayList(Handle.CREATOR) ?: return null
+            results =
+              source.createTypedArrayList(parcelableCreator()) ?: return null
           )
         }
 

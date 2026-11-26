@@ -12,7 +12,7 @@ import org.robolectric.RobolectricTestRunner;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.jeanbarrossilva.dias.launcher.HandleAssert.assertThat;
-import static com.jeanbarrossilva.dias.launcher.Handle.SAMPLE;
+import static com.jeanbarrossilva.dias.launcher.Handle.getSample;
 
 @RunWith(RobolectricTestRunner.class)
 public class HandleTests {
@@ -24,8 +24,8 @@ public class HandleTests {
   @Test
   public void launches() {
     final Context context = getApplicationContext();
-    SAMPLE.launch(context);
-    assertThat(SAMPLE).launched();
+    getSample().launch(context);
+    assertThat(getSample()).launched();
   }
 
   @After

@@ -70,7 +70,7 @@ public final class LocalLauncher extends Launcher {
 
   @Override
   protected String[] getPinIDs() {
-    return pins.stream().map(handle -> handle.id).toArray(String[]::new);
+    return pins.stream().map(Handle::getID).toArray(String[]::new);
   }
 
   @Override
@@ -101,7 +101,7 @@ public final class LocalLauncher extends Launcher {
   private Handle findPin(@Nullable final String id) {
     return id == null ? null : pins
       .stream()
-      .filter(handle -> handle.id.equals(id))
+      .filter(handle -> handle.getID().equals(id))
       .findFirst()
       .orElse(null);
   }
