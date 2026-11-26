@@ -34,6 +34,7 @@ import java.io.Closeable
 import java.util.Arrays.asList
 import kotlin.collections.orEmpty
 
+@Stable
 internal sealed class Mode: Closeable, Parcelable {
   @Immutable
   @Parcelize
@@ -45,7 +46,6 @@ internal sealed class Mode: Closeable, Parcelable {
     override fun close() = Unit
   }
 
-  @Stable
   class Search private constructor(
     private var launcherState: MutableState<Launcher?>,
     private var session: SearchSession,
