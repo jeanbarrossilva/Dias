@@ -83,7 +83,7 @@ public final class LocalSearchSession extends SearchSession {
   ) {
     final Handle[] handles = getHandles();
     return handles == null ? List.of() : stream(handles)
-      .filter(handle -> normalize(handle.label).contains(query))
+      .filter(handle -> normalize(handle.getLabel()).contains(query))
       .toList();
   }
 

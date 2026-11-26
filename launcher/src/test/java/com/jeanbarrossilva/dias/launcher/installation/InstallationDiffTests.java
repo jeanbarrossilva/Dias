@@ -1,3 +1,19 @@
+/*
+ * Copyright © 2026 Jean Silva
+ *
+ * Dias is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * Dias is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Dias. If not, see https://www.gnu.org/licenses.
+ */
+
 package com.jeanbarrossilva.dias.launcher.installation;
 
 import com.jeanbarrossilva.dias.launcher.Handle;
@@ -116,7 +132,7 @@ public final class InstallationDiffTests {
         handles[index] = kind == Kind.UNINSTALLATION
           ? sourceHandles[indices[index]]
           : generateHandle();
-        handleIDs[index] = handles[index].id;
+        handleIDs[index] = handles[index].getID();
       }
       final var diff = new InstallationDiff(handles, handleIDs, indices, kind);
       final var config = new Configuration(sourceHandles, diff);

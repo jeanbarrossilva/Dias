@@ -65,7 +65,7 @@ public class LauncherTests {
       launcher.setOnPinningListener(
         pinning -> listenerNotificationCount.getAndIncrement());
       launcher.close();
-      executor.submit(() -> launcher.pin(pin.id));
+      executor.submit(() -> launcher.pin(pin.getID()));
       executor.close();
       assertThat(listenerNotificationCount)
         .describedAs("listenerNotificationCount")
@@ -80,7 +80,7 @@ public class LauncherTests {
       final Launcher launcher = createLauncher();
       final LauncherAssert launcherAssert = assertThat(launcher);
       for (final Handle handle: launcher.getHandles())
-        launcherAssert.hasUnpinned(handle.id);
+        launcherAssert.hasUnpinned(handle.getID());
       launcherAssert.hasHandles()
                     .doesNotHavePins()
                     .pins()
@@ -92,11 +92,11 @@ public class LauncherTests {
       final ExecutorService executor = createExecutor();
       final Launcher launcher = createLauncher();
       final Handle pin = launcher.getHandles().getFirst();
-      executor.submit(() -> launcher.pin(pin.id));
+      executor.submit(() -> launcher.pin(pin.getID()));
       executor.close();
       assertThat(launcher).hasHandles()
                           .hasPins()
-                          .hasPinned(pin.id)
+                          .hasPinned(pin.getID())
                           .pins()
                           .containsExactly(launcher.getHandles().getFirst());
       launcher.clear();
@@ -110,13 +110,13 @@ public class LauncherTests {
       final List<Handle> handles = launcher.getHandles();
       final Handle pin = handles.getFirst();
       executor.submit(() -> {
-        launcher.pin(pin.id);
-        launcher.pin(pin.id);
+        launcher.pin(pin.getID());
+        launcher.pin(pin.getID());
       });
       executor.close();
       assertThat(launcher).hasHandles()
                           .hasPins()
-                          .hasPinned(pin.id)
+                          .hasPinned(pin.getID())
                           .pins()
                           .containsExactly(handles.getFirst());
       launcher.clear();
@@ -129,7 +129,7 @@ public class LauncherTests {
       final Launcher launcher = createLauncher();
       final List<Handle> handles = launcher.getHandles();
       final List<String> pinIDs = handles.stream()
-                                         .map(handle -> handle.id)
+                                         .map(Handle::getID)
                                          .limit(2)
                                          .toList();
       executor.submit(() -> launcher.pin(new HashSet<>(pinIDs)));
@@ -150,7 +150,7 @@ public class LauncherTests {
       final Launcher launcher = createLauncher();
       final List<Handle> handles = launcher.getHandles();
       final List<String> handleIDs = handles.stream()
-                                            .map(handle -> handle.id)
+                                            .map(Handle::getID)
                                             .limit(2)
                                             .toList();
       executor.submit(() -> handleIDs.forEach(launcher::pin));
@@ -171,7 +171,7 @@ public class LauncherTests {
       final Launcher launcher = createLauncher();
       final List<String> pinningIDs = launcher.getHandles()
                                               .stream()
-                                              .map(handle -> handle.id)
+                                              .map(Handle::getID)
                                               .limit(4)
                                               .toList();
       final HashSet<String> pinningIDsAsSet = new HashSet<>(pinningIDs);
@@ -201,7 +201,7 @@ public class LauncherTests {
       final Launcher launcher = createLauncher();
       final List<String> pinningHandleIDs = launcher.getHandles()
                                                     .stream()
-                                                    .map(handle -> handle.id)
+                                                    .map(Handle::getID)
                                                     .limit(4)
                                                     .collect(toList());
       executor.submit(() -> launcher.pin(new HashSet<>(pinningHandleIDs)));
@@ -235,7 +235,7 @@ public class LauncherTests {
       final Handle pin = launcher.getHandles().getFirst();
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
       launcher.setOnPinningListener(pinningRef::set);
-      executor.submit(() -> launcher.pin(pin.id));
+      executor.submit(() -> launcher.pin(pin.getID()));
       executor.close();
       MethodAssert.assertThat(AtomicReference.class, "get")
                   .invoke(pinningRef)
@@ -253,7 +253,7 @@ public class LauncherTests {
       final Launcher launcher = createLauncher();
       final Set<String> pinIDs = launcher.getHandles()
                                          .stream()
-                                         .map(handle -> handle.id)
+                                         .map(Handle::getID)
                                          .limit(2)
                                          .collect(toUnmodifiableSet());
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
@@ -276,9 +276,9 @@ public class LauncherTests {
       final Launcher launcher = createLauncher();
       final Handle pin = launcher.getHandles().getFirst();
       final var pinningRef = new AtomicReference<Launcher.Pinning>();
-      executor.submit(() -> launcher.pin(pin.id));
+      executor.submit(() -> launcher.pin(pin.getID()));
       launcher.setOnPinningListener(pinningRef::set);
-      executor.submit(() -> launcher.unpin(pin.id));
+      executor.submit(() -> launcher.unpin(pin.getID()));
       executor.close();
       MethodAssert.assertThat(AtomicReference.class, "get")
                   .invoke(pinningRef)
@@ -296,7 +296,7 @@ public class LauncherTests {
       final Launcher launcher = createLauncher();
       final Set<String> pinningIDs = launcher.getHandles()
                                              .stream()
-                                             .map(handle -> handle.id)
+                                             .map(Handle::getID)
                                              .limit(2)
                                              .collect(toUnmodifiableSet());
       final var pinningRef = new AtomicReference<Launcher.Pinning>();

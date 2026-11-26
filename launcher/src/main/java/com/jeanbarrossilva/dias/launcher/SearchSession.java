@@ -183,7 +183,7 @@ public abstract class SearchSession implements Parcelable {
    *   handle labeled "Calculator", {@code query} being {@code "calc"} would
    *   include the handle in the returned array) or match it exactly.
    * @return The search results, or {@code null} if the query is {@code null}.
-   * @see Handle#label
+   * @see Handle#getLabel()
    * @throws EndedException If this session has ended.
    * @throws UncontextualizedException If this session is the result of a
    *   deserialization and the given context is {@code null}.

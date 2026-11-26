@@ -130,7 +130,7 @@ public abstract class Launcher implements Closeable {
     /**
      * IDs of the handles that weren't found.
      *
-     * @see Handle#id
+     * @see Handle#getID()
      */
     final Set<String> ids;
 
@@ -186,7 +186,7 @@ public abstract class Launcher implements Closeable {
     this.handles = handles;
     this.indexing = new MutableObjectIntMap<>(handles.length);
     for (int index = 0; index < handles.length; index++)
-      this.indexing.put(handles[index].id, index);
+      this.indexing.put(handles[index].getID(), index);
     this.onPinningListener = null;
     this.searching = new HashMap<>();
 
@@ -273,14 +273,14 @@ public abstract class Launcher implements Closeable {
    */
   @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
   public final String label(final String id) throws HandleNotFoundException {
-    return get(id).label;
+    return get(id).getLabel();
   }
 
   /**
    * Pins the given unpinned handle.
    *
    * @param id ID of the handle to be pinned.
-   * @see Handle#id
+   * @see Handle#getID()
    * @throws HandleNotFoundException If the handle doesn't belong to this
    *   launcher.
    */
@@ -298,7 +298,7 @@ public abstract class Launcher implements Closeable {
    * Pins the given unpinned handles.
    *
    * @param ids IDs of the handles to pin.
-   * @see Handle#id
+   * @see Handle#getID()
    * @throws HandleNotFoundException If a handle doesn't belong to this
    *   launcher.
    */
@@ -316,7 +316,7 @@ public abstract class Launcher implements Closeable {
    * Unpins the given pinned handle.
    *
    * @param id ID of the handle to unpin.
-   * @see Handle#id
+   * @see Handle#getID()
    * @throws HandleNotFoundException If the handle doesn't belong to this
    *   launcher.
    */
@@ -410,7 +410,7 @@ public abstract class Launcher implements Closeable {
     final var pins = findPins();
     final var pinIDs = new HashSet<String>(pins.length);
     for (final Handle pin: pins)
-      pinIDs.add(pin.id);
+      pinIDs.add(pin.getID());
     final IntHashSet pinIndices = getIndices(pinIDs);
     final var pinning = new Pinning(pinIndices, true);
     listener.accept(pinning);
@@ -502,7 +502,7 @@ public abstract class Launcher implements Closeable {
    * Returns the handle identified by the given ID.
    *
    * @param id ID of the handle to be returned.
-   * @see Handle#id
+   * @see Handle#getID()
    * @throws HandleNotFoundException If the handle doesn't belong to this
    *   launcher.
    */
@@ -540,7 +540,7 @@ public abstract class Launcher implements Closeable {
          indexIterator.hasNext();
          index = indexIterator.nextValue(), count++) {
       final Handle handle = handles[index];
-      if (isPinned(handle.id))
+      if (isPinned(handle.getID()))
         result[count] = handle;
     }
     return result;
