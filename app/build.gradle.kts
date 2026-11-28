@@ -18,6 +18,7 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.android.compose)
   alias(libs.plugins.kotlin.parcelize)
+  alias(libs.plugins.kotlin.serialization)
   id("dias-android-module")
 }
 
@@ -28,20 +29,23 @@ android {
   defaultConfig {
     applicationId = "com.jeanbarrossilva.dias"
     versionCode = 1
-    versionName = "1.0"
+    versionName = "v1.0"
   }
 }
 
 dependencies {
   implementation(project(":launcher"))
   implementation(libs.android.activity.compose)
+  implementation(libs.android.compose.animation.core)
   implementation(libs.android.compose.material.icons)
   implementation(libs.android.compose.material3)
   implementation(libs.android.compose.ui.tooling)
   implementation(libs.android.constraintLayout)
   implementation(libs.android.material)
+  implementation(libs.android.navigation.compose)
   implementation(libs.android.room.runtime)
   implementation(libs.javaDiffUtils)
+  implementation(libs.kotlin.reflect)
   testImplementation(libs.android.test.espresso.core)
   testImplementation(libs.assertJ)
   testImplementation(libs.jUnit4)

@@ -29,7 +29,7 @@ internal class HomeActivity: ComponentActivity() {
     launcher.pin(launcher.handles[0].id)
     setContent {
       DiasTheme {
-        Home(launcher)
+        Home(this, launcher)
       }
     }
   }

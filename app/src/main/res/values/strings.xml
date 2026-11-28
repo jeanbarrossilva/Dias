@@ -1,7 +1,23 @@
 <resources>
   <string name="app_name">Dias</string>
+  <string name="app_navigation_pop">Go back</string>
 
   <!-- Home -->
   <string name="home_search">Search</string>
   <string name="home_search_hint">Search…</string>
+  <string name="home_navigation_to_settings">Go to settings</string>
+
+  <!-- Settings -->
+  <string name="settings">Settings</string>
+  <string name="settings_authorship">with ♡ by Jean</string>
+  <string name="settings_authorship_source_code_availability_prefix">
+    source on
+  </string>
+  <string name="settings_legal">Legal</string>
+  <string name="settings_legal_licenses">Licenses</string>
+  <string name="settings_legal_privacy_policy">Privacy policy</string>
+  <string name="settings_navigation_to_licenses">Go to licenses</string>
+  <string name="settings_navigation_to_privacy_policy">
+    Go to privacy policy
+  </string>
 </resources>

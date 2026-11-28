@@ -18,11 +18,10 @@ package com.jeanbarrossilva.dias.app.ui.theme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.contentColorFor
@@ -39,9 +38,8 @@ import androidx.compose.ui.unit.dp
 /** Dias' implementation of the Material floating action button (FAB). */
 object FloatingActionButton {
   /** Brush of a Dias FAB's background. */
-  val containerBrush
-    @Composable get() = linearGradient(
-      listOf(DiasTheme.colors.secondaryContainer, mainContainerColor)
+  val containerBrush = linearGradient(
+      listOf(DiasTheme.Colors.secondaryContainer, MainContainerColor)
     )
 
   /** Shape of a Dias' FAB. */
@@ -50,33 +48,46 @@ object FloatingActionButton {
   /** Expected spacing between a Dias FAB and its parent layout's bounds. */
   val Margin = 16.dp
 
-  private val mainContainerColor
-    @Composable get() = DiasTheme.colors.primaryContainer
+  private val MainContainerColor
+    get() = DiasTheme.Colors.primaryContainer
 
   /**
    * The FAB composable.
    *
-   * @param onClick Lambda invoked whenever this FAB is clicked.
+   * @param onClick Lambda invoked whenever this FAB receives a single click.
+   * @param onClickLabel Description of the on-click action.
+   * @param onLongClick Lambda invoked whenever this FAB is pressed.
+   * @param onLongClickLabel Description of the on-long-click action.
    * @param modifier Modifier for this FAB.
    * @param content Composable to be shown in this FAB.
    */
   @Composable
   operator fun invoke(
     onClick: () -> Unit,
+    onClickLabel: String,
+    onLongClick: () -> Unit,
+    onLongClickLabel: String,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
   ) {
     Box(
-      modifier
-        .border(2.dp, DiasTheme.colors.surfaceVariant, Shape)
+      Modifier
+        .border(2.dp, DiasTheme.Colors.outline, Shape)
         .clip(Shape)
-        .clickable(onClick = onClick, role = Role.Button)
+        .combinedClickable(
+          onClickLabel = onClickLabel,
+          role = Role.Button,
+          onLongClickLabel = onLongClickLabel,
+          onLongClick = onLongClick,
+          onClick = onClick
+        )
         .background(containerBrush, Shape)
-        .size(56.dp),
+        .size(56.dp)
+        .then(modifier),
       Alignment.Center
     ) {
       CompositionLocalProvider(
-        LocalContentColor provides contentColorFor(mainContainerColor),
+        LocalContentColor provides contentColorFor(MainContainerColor),
         content
       )
     }
@@ -86,7 +97,12 @@ object FloatingActionButton {
 @Composable
 @Preview
 private fun FloatingActionButtonPreview() = DiasTheme {
-  FloatingActionButton(onClick = {}) {
+  FloatingActionButton(
+    onClick = {},
+    onClickLabel = "Add",
+    onLongClick = {},
+    onLongClickLabel = "No-op"
+  ) {
     Icon(DiasTheme.Icons.Add, contentDescription = "Add")
   }
 }

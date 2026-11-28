@@ -16,6 +16,7 @@
 
 package com.jeanbarrossilva.dias.app.feature.home
 
+import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SharedTransitionLayout
@@ -39,7 +40,6 @@ import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -61,19 +61,33 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import br.com.orcinus.orca.platform.focus.rememberImmediateFocusRequester
 import com.jeanbarrossilva.dias.R
+import com.jeanbarrossilva.dias.app.feature.settings.SettingsActivity
 import com.jeanbarrossilva.dias.app.ui.theme.DiasTheme
 import com.jeanbarrossilva.dias.app.ui.theme.FloatingActionButton
+import com.jeanbarrossilva.dias.app.util.intentOf
 import com.jeanbarrossilva.dias.launcher.Launcher
 
 private const val ModeSwitchTransitionKey = 0
 
 @Composable
-fun Home(launcher: Launcher, modifier: Modifier = Modifier) {
+internal fun Home(
+  activity: Activity,
+  launcher: Launcher,
+  modifier: Modifier = Modifier
+) {
   var mode by rememberSaveable { mutableStateOf<Mode>(Mode.Pinned) }
-  Home(launcher, mode, onModeChange = { mode = it }, modifier)
+
+  Home(
+    launcher,
+    mode,
+    onModeChange = { mode = it },
+    onNavigationToSettings = {
+      activity.startActivity(intentOf<SettingsActivity>(activity))
+    },
+    modifier
+  )
 }
 
 @Composable
@@ -82,6 +96,7 @@ private fun Home(
   launcher: Launcher,
   mode: Mode,
   onModeChange: (Mode) -> Unit,
+  onNavigationToSettings: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   val handles by rememberSaveable(launcher, mode) {
@@ -105,12 +120,17 @@ private fun Home(
             is Mode.Pinned ->
               FloatingActionButton(
                 onClick = { onModeChange(Mode.Search(launcher)) },
-                Modifier.sharedBounds(
-                  rememberSharedContentState(ModeSwitchTransitionKey),
-                  this,
-                  resizeMode =
-                    SharedTransitionScope.ResizeMode.RemeasureToBounds
-                )
+                onClickLabel = stringResource(R.string.home_search),
+                onLongClick = onNavigationToSettings,
+                onLongClickLabel =
+                  stringResource(R.string.home_navigation_to_settings),
+                Modifier
+                  .sharedBounds(
+                    rememberSharedContentState(ModeSwitchTransitionKey),
+                    this,
+                    resizeMode =
+                      SharedTransitionScope.ResizeMode.RemeasureToBounds
+                  )
               ) {
                 Icon(
                   DiasTheme.Icons.Search,
@@ -135,7 +155,7 @@ private fun Home(
                       FloatingActionButton.containerBrush,
                       FloatingActionButton.Shape
                     )
-                    .padding(4.dp)
+                    .padding(DiasTheme.Spacing.xs)
                     .width(maxWidth - FloatingActionButton.Margin * 2)
                     .focusRequester(rememberImmediateFocusRequester()),
                   label = { Text(stringResource(R.string.home_search_hint)) },
@@ -158,7 +178,7 @@ private fun Home(
         Modifier
           .imeNestedScroll()
           .fillMaxSize(),
-        contentPadding = PaddingValues(end = 24.dp) + it,
+        contentPadding = PaddingValues(end = DiasTheme.Spacing.l) + it,
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.End
       ) {
@@ -177,7 +197,7 @@ private fun Home(
 
           Spacer(
             if (index < handles.lastIndex)
-              Modifier.height(8.dp)
+              Modifier.height(DiasTheme.Spacing.s)
             else
               Modifier.imePadding()
           )
@@ -190,7 +210,12 @@ private fun Home(
 @Composable
 @Preview
 private fun HomeInPinnedModePreview() = DiasTheme {
-  Home(Launcher.local(LocalContext.current), Mode.Pinned, onModeChange = {})
+  Home(
+    Launcher.local(LocalContext.current),
+    Mode.Pinned,
+    onModeChange = {},
+    onNavigationToSettings = {}
+  )
 }
 
 @Composable
@@ -199,5 +224,5 @@ private fun HomeInSearchModePreview() = DiasTheme {
   val context = LocalContext.current
   val launcher = remember(context) { Launcher.local(context) }
   val mode = remember(launcher) { Mode.Search(launcher) }
-  Home(launcher, mode, onModeChange = {})
+  Home(launcher, mode, onModeChange = {}, onNavigationToSettings = {})
 }

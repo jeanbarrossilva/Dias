@@ -4,17 +4,10 @@ import org.junit.Test;
 
 import java.util.List;
 
-import static com.jeanbarrossilva.dias.launcher.util.Iterables.getIndices;
 import static com.jeanbarrossilva.dias.launcher.util.Iterables.joinToString;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class IterablesTests {
-  @Test
-  public void getsIndices() {
-    assertThat(getIndices(List.of())).isEmpty();
-    assertThat(getIndices(List.of(1, 2))).containsExactly(0, 1);
-  }
-
   @Test
   public void joinsToString() {
     assertThat(joinToString(List.of(), ", ", " and ")).isEqualTo("");
